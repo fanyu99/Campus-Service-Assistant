@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build output
+dist/
+build/
+dist-ssr/
+*.local
+
+# Vue / JS 产物文件
+.cache/
+.temp/
+.parcel-cache/
+.next/
+.nuxt/
+.output/
+.turbo/
+.rollup.cache/
+webpack-cache/
+.eslintcache
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 环境变量文件（敏感信息）
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# 编辑器 / IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 测试 / 覆盖率
+coverage/
+*.lcov
+.nyc_output/
+
+# 包管理锁文件（按需保留其一，这里默认忽略 pnpm/yarn，保留 package-lock.json 可自行调整）
+# pnpm-lock.yaml
+# yarn.lock
+
+# TypeScript 增量构建
+*.tsbuildinfo
