@@ -1,9 +1,10 @@
 <script setup lang="ts">
+
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { recentConversations, serviceItems } from '../data/home.mock'
 import { useEyeGaze } from '../composables/useEyeGaze'
-import { useHeroField } from '../composables/useHeroField'
+import { useCharacterBubble } from '../composables/useCharacterBubble'
 
 const DRAFT_KEY = 'campus-assistant.draft'
 const MAX_H = 104
@@ -14,11 +15,10 @@ const question = ref('')
 const status = ref('')
 const isError = ref(false)
 const character = ref<HTMLElement | null>(null)
-const fxLayer = ref<HTMLElement | null>(null)
 const inputEl = ref<HTMLTextAreaElement | null>(null)
+const { hoverMessage, setHoverMessage, clearHoverMessage } = useCharacterBubble()
 
 useEyeGaze(character)
-useHeroField(fxLayer)
 
 /** 服务图标：按 id 映射到内联 sprite，数据层（home.mock.ts）保持不变 */
 const SERVICE_ICON: Record<string, string> = {
@@ -28,6 +28,53 @@ const SERVICE_ICON: Record<string, string> = {
   leave: 'i-clock',
 }
 const visibleRecent = computed(() => recentConversations.slice(0, 3))
+
+const hoverMessages = {
+  services: ['这个我熟，才不是特意帮你的呢。', '校园事务我可是很在行的！'],
+  recent: ['还想继续问上次的问题吗？', '记得很清楚嘛，要不要接着问？'],
+  suggestions: ['这个问题不错，快问快问！', '哼，这种问题我也能回答。'],
+}
+
+function pickMessage(messages: string[]) {
+  return messages[Math.floor(Math.random() * messages.length)]
+}
+
+function readProfileName() {
+  const keys = ['campus-assistant.user', 'campus-assistant.profile', 'userProfile', 'currentUser']
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      const data = JSON.parse(raw) as { name?: string; realName?: string; username?: string }
+      const name = data.name ?? data.realName ?? data.username
+      if (typeof name === 'string' && name.trim()) return name.trim()
+    } catch (e) {
+      /* 忽略无法解析的本地资料 */
+    }
+  }
+  return ''
+}
+
+const userName = readProfileName()
+const userLabel = userName ? userName + '同学' : '同学'
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  const prefix = hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
+  return prefix + '，' + userLabel
+})
+const waitingMessages = ['等待用户输入ing……', '我已经准备好了，快输入嘛～', '输入中？我在认真等着呢。']
+const characterMessage = computed(() => {
+  if (question.value.trim()) return waitingMessages[question.value.length % waitingMessages.length]
+  return hoverMessage.value || greeting.value
+})
+
+function setHover(messages: string[]) {
+  setHoverMessage(pickMessage(messages))
+}
+
+function clearHover() {
+  clearHoverMessage()
+}
 
 function autoGrow() {
   const el = inputEl.value
@@ -107,10 +154,11 @@ try {
 } catch (e) {
   /* 忽略 */
 }
+
 </script>
 
 <template>
-  <main class="main" data-od-id="home-main">
+  <main class="main home-reveal" data-od-id="home-main">
     <header class="topbar" data-od-id="global-header">
       <nav class="crumb" aria-label="页面标题"><strong>首页</strong></nav>
       <div class="top-actions">
@@ -121,20 +169,14 @@ try {
 
     <div class="workspace">
       <section class="stage" data-od-id="ask-stage">
-        <div ref="fxLayer" class="fx-layer" aria-hidden="true" data-od-id="hero-field">
-          <canvas class="fx-canvas"></canvas>
-          <div class="fx-grid"></div>
-          <div class="fx-orb fx-orb-1"></div>
-          <div class="fx-orb fx-orb-2"></div>
-          <div class="fx-glow"></div>
-          <div class="fx-trail"></div>
-        </div>
-
-        <div class="character-layer" data-od-id="character-stage" aria-hidden="true">
-          <div ref="character" class="character">
-            <img class="ch-base" src="/assets/character.png" alt="">
-            <div class="ch-iris-mask"><div class="ch-iris"><img src="/assets/character-iris.png" alt=""></div></div>
-            <img class="ch-lash" src="/assets/character-lash.png" alt="">
+        <div class="character-layer" data-od-id="character-stage">
+          <div class="character-wrap">
+            <div class="character-bubble" role="status" aria-live="polite">{{ characterMessage }}</div>
+            <div ref="character" class="character">
+              <img class="ch-base" src="/assets/character.png" alt="">
+              <div class="ch-iris-mask"><div class="ch-iris"><img src="/assets/character-iris.png" alt=""></div></div>
+              <img class="ch-lash" src="/assets/character-lash.png" alt="">
+            </div>
           </div>
         </div>
 
@@ -149,9 +191,9 @@ try {
           </form>
           <p class="composer-msg" :class="{ 'is-error': isError }" role="status" aria-live="polite">{{ status }}</p>
           <div class="chips" data-od-id="ask-suggestions">
-            <button type="button" class="chip" @click="fill('学生证丢了怎么补办？')">学生证丢了怎么补办？</button>
-            <button type="button" class="chip" @click="fill('宿舍水龙头坏了，应该在哪里报修？')">宿舍水龙头坏了去哪报修？</button>
-            <button type="button" class="chip" @click="fill('因病请假需要准备哪些材料？')">因病请假需要哪些材料？</button>
+            <button type="button" class="chip" @mouseenter="setHover(hoverMessages.suggestions)" @mouseleave="clearHover" @focus="setHover(hoverMessages.suggestions)" @blur="clearHover" @click="fill('学生证丢了怎么补办？')">学生证丢了怎么补办？</button>
+            <button type="button" class="chip" @mouseenter="setHover(hoverMessages.suggestions)" @mouseleave="clearHover" @focus="setHover(hoverMessages.suggestions)" @blur="clearHover" @click="fill('宿舍水龙头坏了，应该在哪里报修？')">宿舍水龙头坏了去哪报修？</button>
+            <button type="button" class="chip" @mouseenter="setHover(hoverMessages.suggestions)" @mouseleave="clearHover" @focus="setHover(hoverMessages.suggestions)" @blur="clearHover" @click="fill('因病请假需要哪些材料？')">因病请假需要哪些材料？</button>
           </div>
         </div>
       </section>
@@ -161,7 +203,7 @@ try {
           <div class="panel-head"><h2>常用服务</h2><button type="button" class="link-btn" data-od-id="view-all-services" @click="router.push({ name: 'services' })">查看全部</button></div>
           <ul class="list">
             <li v-for="item in serviceItems" :key="item.id">
-              <button type="button" class="row" :data-od-id="`service-card-${item.id}`" @click="goChat(item.prompt)">
+              <button type="button" class="row" :data-od-id="`service-card-${item.id}`" @mouseenter="setHover(hoverMessages.services)" @mouseleave="clearHover" @focus="setHover(hoverMessages.services)" @blur="clearHover" @click="goChat(item.prompt)">
                 <span class="row-icon" aria-hidden="true"><svg class="i"><use :href="'#' + SERVICE_ICON[item.id]"/></svg></span>
                 <span class="row-title">{{ item.title }}</span>
                 <span class="row-cat">{{ item.category }}</span>
@@ -175,7 +217,7 @@ try {
           <div class="panel-head"><h2>最近咨询</h2><button type="button" class="link-btn" data-od-id="view-all-history" @click="router.push({ name: 'history' })">全部记录</button></div>
           <ul class="list">
             <li v-for="item in visibleRecent" :key="item.id">
-              <button type="button" class="recent-row" :data-od-id="item.id" @click="goChat(item.question)">
+              <button type="button" class="recent-row" :data-od-id="item.id" @mouseenter="setHover(hoverMessages.recent)" @mouseleave="clearHover" @focus="setHover(hoverMessages.recent)" @blur="clearHover" @click="goChat(item.question)">
                 <span class="recent-dot" aria-hidden="true"></span>
                 <span class="recent-body"><strong>{{ item.question }}</strong><span>{{ item.time }}<i>·</i>{{ item.tag }}</span></span>
                 <svg class="i row-chev" aria-hidden="true"><use href="#i-chev"/></svg>
@@ -190,27 +232,22 @@ try {
 </template>
 
 <style scoped>
+/* ?? ???????????? opacity / transform??????????? ?? */
+.home-reveal .topbar,
+.home-reveal .stage,
+.home-reveal .panel{animation:home-fade-up 460ms cubic-bezier(.2,0,0,1) both}
+.home-reveal .stage{animation-delay:55ms}
+.home-reveal .panel{animation-delay:105ms}
+@keyframes home-fade-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){.character-bubble{animation:none}
+  .home-reveal .topbar,.home-reveal .stage,.home-reveal .panel{animation:none}
+}
+
 /* ── 工作区 ────────────────────────────────────────────────────────────── */
 .workspace{display:flex;gap:clamp(20px,2.4vw,38px);flex:1;min-height:0;padding-bottom:clamp(16px,2vw,26px)}
-.stage{position:relative;display:flex;flex-direction:column;min-width:0;flex:1}
+.stage{position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-width:0;flex:1}
 
 /* ── 动态色块层（原首页搜索栏背景效果，改为发色，置于角色上方）───────────── */
-.fx-layer{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;isolation:isolate}
-.fx-canvas{position:absolute;inset:0;width:100%;height:100%;opacity:.9}
-.fx-grid{position:absolute;inset:0;opacity:.62;
-  background-image:linear-gradient(var(--fx-dot) 1px,transparent 1px),linear-gradient(90deg,var(--fx-dot) 1px,transparent 1px);
-  background-size:23px 23px;
-  -webkit-mask-image:linear-gradient(100deg,transparent 6%,#000 58%,#000 88%,transparent 100%);
-          mask-image:linear-gradient(100deg,transparent 6%,#000 58%,#000 88%,transparent 100%)}
-.fx-orb{position:absolute;border-radius:var(--orb-radius,48% 52% 56% 44% / 50% 42% 58% 50%);
-  transform:translate3d(var(--orb-x,0),var(--orb-y,0),0) rotate(var(--orb-rotate,0deg)) scale(var(--orb-scale,1));
-  transition:border-radius .55s ease,transform .7s cubic-bezier(.2,.72,.2,1)}
-.fx-orb-1{right:0;top:3%;width:min(54%,470px);aspect-ratio:1.22;background:var(--fx-orb-1)}
-.fx-orb-2{left:1%;top:12%;width:min(30%,250px);aspect-ratio:1;background:var(--fx-orb-2)}
-.fx-glow,.fx-trail{position:absolute;inset:0;opacity:0;transition:opacity .35s ease}
-.fx-glow{background:radial-gradient(circle at var(--glow-x,74%) var(--glow-y,44%),oklch(93% .07 40 / .62),oklch(80% .13 38 / .16) 32%,transparent 64%)}
-.fx-trail{filter:blur(12px);background:radial-gradient(ellipse 18% 28% at var(--glow-x,74%) var(--glow-y,44%),oklch(70% .154 36 / .2),transparent 72%)}
-.fx-glow.on,.fx-trail.on{opacity:1}
 
 /* ── 角色（托腮趴桌）＋ 整个红色眼瞳跟随 ────────────────────────────────
    角色图已在资源侧抠成透明底（alpha 由原画四边泛洪求得），所以不再需要羽化遮罩，
@@ -220,16 +257,19 @@ try {
      2) 虹膜精灵  —— 只含虹膜像素（睫毛像素按颜色剔除），整层平移
      3) 睫毛层    —— 静止，压在最上层
    虹膜精灵的 alpha 里没有睫毛，且睫毛层始终盖在最上面，因此眼动只动眼瞳。 */
-.character-layer{position:relative;z-index:1;container-type:size;display:flex;align-items:flex-end;justify-content:center;
-  flex:1;min-height:0;overflow:hidden;margin-bottom:-6px}
+.character-wrap{position:relative;width:min(36%,230px)}.character-bubble{position:absolute;z-index:3;left:72%;bottom:calc(100% - 4px);width:max-content;max-width:min(300px,76vw);padding:10px 15px;border:1px solid var(--border);border-radius:18px;background:var(--surface);color:var(--fg);font-size:13px;line-height:1.5;text-align:center;box-shadow:0 10px 24px color-mix(in srgb,var(--fg) 8%,transparent);transform:translateX(-18%);animation:bubble-pop .24s ease both}.character-bubble::after{content:"";position:absolute;left:22%;bottom:-7px;width:12px;height:12px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);transform:translateX(-50%) rotate(45deg)}@keyframes bubble-pop{from{opacity:0;transform:translateX(-18%) translateY(4px) scale(.98)}to{opacity:1;transform:translateX(-18%)}}
+.character-layer{position:relative;z-index:1;display:flex;align-items:flex-end;justify-content:center;
+  flex:0 0 auto;min-height:0;overflow:visible;margin-bottom:0}
 .character{position:relative;aspect-ratio:1024/954;
-  width:min(100%,calc(100cqh * 1024 / 954),640px);
-  /* 掩膜＝眼白开口（左 (395,599) 58×58、右 (613,532) 60×60，由真实像素量得）。
-     比虹膜大约 11px：眼瞳在这个开口内平移，越界部分被柔和裁掉，等价于被眼睑挡住，
-     不会溢到眼外的皮肤上。 */
+  width:100%;
+  /* 掩膜＝眼白开口（左 (395,599)、右 (613,532)，由真实像素量得）。
+     半径必须 ≥ 精灵半径 + 最大位移，否则眼瞳移到极限时，领先侧那半圈描边会被
+     掩膜切掉、看起来像虹膜被削平。精灵自身 alpha 已是实测椭圆（左 r54/r53、
+     右 r56/r57），底图在该椭圆内已愈合为眼白，所以这里只需留够余量：
+     rx = 虹膜 rx + 4(精灵外扩) + 14(横向位移) + 2(余量)，ry 同理 +12(纵向位移)。 */
   --eye-mask:
-    radial-gradient(ellipse 5.664% 6.080% at 38.574% 62.788%, #000 88%, transparent 100%),
-    radial-gradient(ellipse 5.859% 6.289% at 59.863% 55.765%, #000 88%, transparent 100%)}
+    radial-gradient(ellipse 6.836% 7.023% at 38.574% 62.788%, #000 88%, transparent 100%),
+    radial-gradient(ellipse 7.031% 7.442% at 59.863% 55.765%, #000 88%, transparent 100%)}
 .character img{position:absolute;display:block}
 .ch-base{inset:0;width:100%;height:100%}
 .ch-iris-mask{position:absolute;inset:0;pointer-events:none;-webkit-mask-image:var(--eye-mask);mask-image:var(--eye-mask)}
@@ -250,7 +290,7 @@ try {
 .composer-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-left:4px}
 .composer-hint{margin:0;color:var(--muted);font-size:12px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .send{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;height:38px;padding:0 16px;border-radius:13px;
-  background:var(--accent);color:#fff;font-size:13px;font-weight:500;white-space:nowrap;transition:background .18s ease,transform .18s ease}
+  background:var(--accent);color:var(--page-bg);font-size:13px;font-weight:500;white-space:nowrap;transition:background .18s ease,transform .18s ease}
 .send .i{width:15px;height:15px;stroke-width:2}
 .send:hover{background:var(--accent-hover);transform:translateY(-1px)}
 .send:active{transform:translateY(0)}
@@ -307,9 +347,9 @@ try {
 /* ── 移动端（≤700px）────────────────────────────────────────────────── */
 @media (max-width:700px){
   .workspace{flex-direction:column;gap:22px;padding-bottom:36px}
-  /* 移动端宽度已由 width:100% 决定；size containment 会让 flex:none 的元素高度塌成 0 */
-  .character-layer{container-type:normal;flex:none;width:100%;margin-bottom:-6px}
-  .character{width:100%}
+  /* 移动端保持角色与对话框的相对位置，并将组合锚定在页面底部 */
+  .character-layer{flex:none;width:100%;margin-bottom:0}
+  .character-wrap{width:min(36%,230px)}
   .composer-wrap{width:100%}
   .composer{padding:13px 13px 11px;border-radius:22px}
   .composer textarea{font-size:16px}
@@ -322,3 +362,4 @@ try {
   .mobile-note{display:block;margin:0;color:var(--muted);font-size:11.5px;line-height:1.6}
 }
 </style>
+

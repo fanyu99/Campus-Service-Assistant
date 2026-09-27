@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import { useCharacterBubble } from '../composables/useCharacterBubble'
 
 interface NavItem {
   name: string
@@ -9,6 +10,7 @@ interface NavItem {
 }
 
 const route = useRoute()
+const { setHoverMessage, clearHoverMessage } = useCharacterBubble()
 
 const primaryNav: NavItem[] = [
   { name: 'home', to: '/', icon: 'i-home', label: '首页' },
@@ -24,6 +26,19 @@ const secondaryNav: NavItem[] = [
 
 function isActive(name: string) {
   return route.name === name
+}
+
+const navMessages: Record<string, string> = {
+  home: '回首页找我吗？我就知道你会想我。',
+  chat: '你要问我问题吗？',
+  services: '对于校园事务，我很在行的！',
+  history: '想看看我们之前聊过什么吗？',
+  help: '遇到不会的就看这里，别害羞嘛。',
+  settings: '要调整一下设置？我陪你。',
+}
+
+function showNavMessage(name: string) {
+  setHoverMessage(navMessages[name] ?? '有什么问题尽管问我。')
 }
 
 function dismissNotice(id: string) {
@@ -51,6 +66,10 @@ function dismissNotice(id: string) {
         :data-od-id="`nav-${item.name}`"
         :data-tip="item.label"
         :aria-current="isActive(item.name) ? 'page' : undefined"
+        @mouseenter="showNavMessage(item.name)"
+        @mouseleave="clearHoverMessage"
+        @focus="showNavMessage(item.name)"
+        @blur="clearHoverMessage"
       >
         <svg class="i" aria-hidden="true"><use :href="`#${item.icon}`"/></svg><span>{{ item.label }}</span>
       </router-link>
@@ -68,6 +87,10 @@ function dismissNotice(id: string) {
         :data-od-id="`nav-${item.name}`"
         :data-tip="item.label"
         :aria-current="isActive(item.name) ? 'page' : undefined"
+        @mouseenter="showNavMessage(item.name)"
+        @mouseleave="clearHoverMessage"
+        @focus="showNavMessage(item.name)"
+        @blur="clearHoverMessage"
       >
         <svg class="i" aria-hidden="true"><use :href="`#${item.icon}`"/></svg><span>{{ item.label }}</span>
       </router-link>
@@ -100,7 +123,7 @@ function dismissNotice(id: string) {
 /* tooltip：悬停或键盘聚焦时显示对应页面名 */
 .nav-item::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;
   transform:translateY(-50%) scale(.96);transform-origin:left center;padding:6px 10px;border-radius:9px;
-  background:var(--fg);color:#fff;font-size:12px;line-height:1;white-space:nowrap;opacity:0;pointer-events:none;
+  background:var(--fg);color:var(--page-bg);font-size:12px;line-height:1;white-space:nowrap;opacity:0;pointer-events:none;
   transition:opacity .14s ease,transform .14s ease;z-index:20}
 .nav-item:hover::after,.nav-item:focus-visible::after{opacity:1;transform:translateY(-50%) scale(1)}
 .sidebar-spacer{flex:1;min-height:16px}
@@ -129,8 +152,9 @@ function dismissNotice(id: string) {
 @media (max-width:700px){
   .sidebar{flex:none;width:100%;flex-direction:row;align-items:center;gap:4px;padding:10px 18px;
     position:sticky;top:0;z-index:6;background:var(--page-bg)}
-  .brand{padding:0;margin-right:auto}
-  .brand strong{position:static;width:auto;height:auto;margin:0;overflow:visible;clip:auto;display:block;font-size:14px}
+  .brand{padding:0;margin-right:auto;min-width:0}
+  .brand strong{position:static;width:auto;height:auto;margin:0;overflow:hidden;clip:auto;display:block;font-size:14px;
+    min-width:0;white-space:nowrap;text-overflow:ellipsis}
   .brand-mark{width:34px;height:34px}
   .sidebar-spacer,.side-status,.secondary-nav,.profile{display:none}
   .primary-nav{display:flex;gap:2px}
@@ -144,3 +168,4 @@ function dismissNotice(id: string) {
 }
 @media (max-width:380px){.brand strong{display:none}}
 </style>
+
