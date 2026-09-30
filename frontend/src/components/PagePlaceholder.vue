@@ -21,7 +21,7 @@ function dismissNotice(id: string) {
     <header class="topbar" data-od-id="global-header">
       <nav class="crumb" aria-label="页面标题"><strong>{{ title }}</strong></nav>
       <div class="top-actions">
-        <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button" @click="dismissNotice('notification-button')"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
+        <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
         <span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="profile-chip-top">林</span>
       </div>
     </header>

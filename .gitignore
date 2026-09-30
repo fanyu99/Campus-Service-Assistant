@@ -31,11 +31,69 @@ pnpm-debug.log*
 
 # 环境变量文件（敏感信息）
 .env
-.env.local
-.env.*.local
-.env.development
-.env.production
-.env.test
+.env.*
+!.env.example
+!.env.sample
+
+# 密钥 / 证书（绝不入库）
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ppk
+*.ovpn
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+
+# 凭据 / 密钥文件
+*.secret
+*.secrets
+secrets/
+.secrets/
+.netrc
+_netrc
+.pypirc
+.npmrc
+serviceAccountKey.json
+*credentials*.json
+google-services.json
+GoogleService-Info.plist
+
+# 云 / 容器 / 集群凭据
+.aws/
+.gcloud/
+.kube/
+kubeconfig*
+.docker/config.json
+docker-compose.override.yml
+
+# 基础设施状态（常含明文敏感值）
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# AI 助手 / 本地智能体数据（记忆、索引、会话）
+.workbuddy-ai/
+.codeartsdoer/
+.claude/
+.cursor/
+.windsurf/
+.continue/
+.codeium/
+.trae/
+.aider*
+
+# 数据库导出
+*.dump
+*.sql.gz
 
 # 编辑器 / IDE
 .vscode/*

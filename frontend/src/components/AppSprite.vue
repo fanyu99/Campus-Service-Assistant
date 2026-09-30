@@ -13,5 +13,6 @@
     <symbol id="i-id" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.6"/><circle cx="8.6" cy="11" r="2.1"/><path d="M5.4 16.4a3.5 3.5 0 0 1 6.4 0M13.8 9.8h4.2M13.8 13.4h4.2"/></symbol>
     <symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5.6" width="18" height="12.8" rx="2.6"/><path d="M3 10.2h18M6.6 14.6h3.2"/></symbol>
     <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.6c3.2 3.7 5.2 6.4 5.2 8.8a5.2 5.2 0 1 1-10.4 0c0-2.4 2-5.1 5.2-8.8z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.8l4.6 4.6L19 7.6"/></symbol>
   </svg>
 </template>

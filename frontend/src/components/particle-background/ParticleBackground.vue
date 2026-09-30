@@ -18,8 +18,8 @@ const props = withDefaults(defineProps<ParticleBackgroundProps>(), {
   waterlineRatio: 0.88,
   waterDepth: 0.06,
   rippleLimit: 54,
-  fieldBoundaryAlpha: 0.72,
-  fieldGlowStrength: 0.72,
+  fieldBoundaryAlpha: 0,
+  fieldGlowStrength: 0,
   opacity: 0.82,
   zIndex: 0,
   reducedMotion: false,
@@ -179,6 +179,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 </style>
+
 
 
 

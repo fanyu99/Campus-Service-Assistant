@@ -1,7 +1,8 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 
 import { ref, watch } from 'vue'
-import { useTheme } from '../composables/useTheme'
+import AppSelect from '../components/AppSelect.vue'
+import { useTheme, type ThemeOption } from '../composables/useTheme'
 
 const noticeRead = ref(false)
 const saved = ref(false)
@@ -10,6 +11,7 @@ const school = ref('华中科技大学')
 const campus = ref('主校区')
 
 const { theme } = useTheme()
+const themeOptions: readonly ThemeOption[] = ['跟随系统', '浅色', '深色']
 
 function dismissNotice() {
   noticeRead.value = true
@@ -40,25 +42,29 @@ watch([displayName, school, campus, theme], () => {
     </header>
 
     <section class="settings-content" data-od-id="settings-content">
-      <div class="settings-head"><p class="eyebrow">偏好与账户</p><h1 data-od-id="settings-heading">设置</h1><p class="intro-copy">管理个人资料和页面外观，修改会自动保存在当前浏览器中。</p></div>
+      <div class="settings-head"><h1 data-od-id="settings-heading">设置</h1></div>
 
       <div class="settings-layout">
-        <section class="settings-section profile-section" data-od-id="profile-settings"><div class="section-heading"><div><h2>个人资料</h2><p>这些信息只用于称呼和账户识别。</p></div><span class="profile-mark" aria-hidden="true">林</span></div><div class="profile-grid"><label class="field"><span>显示名称</span><input v-model="displayName" type="text" autocomplete="name" /></label><label class="field"><span>学校</span><input v-model="school" type="text" autocomplete="organization" /></label><label class="field"><span>校区</span><input v-model="campus" type="text" /></label></div></section>
+        <section class="settings-section profile-section" data-od-id="profile-settings"><div class="section-heading"><div><h2>个人资料</h2></div><span class="profile-mark" aria-hidden="true">林</span></div><div class="profile-grid"><label class="field"><span>显示名称</span><span class="composer-shell"><input v-model="displayName" type="text" autocomplete="name" /></span></label><label class="field"><span>学校</span><span class="composer-shell"><input v-model="school" type="text" autocomplete="organization" /></span></label><label class="field"><span>校区</span><span class="composer-shell"><input v-model="campus" type="text" /></span></label></div></section>
 
-        <section class="settings-section" data-od-id="appearance-settings"><div class="section-heading"><div><h2>页面外观</h2><p>选择适合你使用习惯的显示方式。</p></div></div><div class="setting-row"><div><strong>主题</strong><span>影响页面背景和内容对比度</span></div><select v-model="theme" aria-label="选择主题"><option>跟随系统</option><option>浅色</option><option>深色</option></select></div></section>
+        <section class="settings-section" data-od-id="appearance-settings"><div class="section-heading"><div><h2>页面外观</h2></div></div><div class="setting-row"><div><strong>主题</strong></div><AppSelect v-model="theme" :options="themeOptions" label="选择主题" class="select-shell" data-od-id="theme-select" /></div></section>
 
-        <section class="settings-section data-section" data-od-id="data-settings"><div class="section-heading"><div><h2>数据管理</h2><p>管理保存在当前浏览器中的偏好。</p></div></div><div class="data-actions"><button type="button" class="secondary-button" data-od-id="save-settings-button" @click="saveProfile">保存修改</button><button type="button" class="text-button" data-od-id="clear-settings-button" @click="clearLocalData">清除本地偏好</button></div><p class="save-status" aria-live="polite">{{ saved ? '已保存当前设置' : '设置会在修改后自动保存' }}</p></section>
+        <section class="settings-section data-section" data-od-id="data-settings"><div class="section-heading"><div><h2>数据管理</h2></div></div><div class="data-actions"><button type="button" class="secondary-button spark-button" data-od-id="save-settings-button" @click="saveProfile">保存修改</button><button type="button" class="text-button" data-od-id="clear-settings-button" @click="clearLocalData">清除本地偏好</button></div><p v-if="saved" class="save-status" aria-live="polite">已保存当前设置</p></section>
       </div>
     </section>
   </main>
 </template>
 
 <style scoped>
-.settings-page{min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border) transparent}.settings-page
-.settings-content{position:relative;z-index:1;width:min(900px,100%);margin:auto;padding:clamp(26px,5vh,70px) 0 clamp(30px,5vh,72px)}.settings-head{padding:clamp(8px,3vh,40px) 0 30px}.eyebrow{margin:0 0 14px;color:var(--accent);font-size:11px;letter-spacing:.08em;font-weight:600}.settings-head h1{margin:0;font-family:var(--font-display);font-size:clamp(32px,4.4vw,54px);line-height:1.3;font-weight:900;letter-spacing:-.025em}.intro-copy{max-width:48ch;margin:16px 0 0;color:var(--muted);font-size:14px;line-height:1.8}.settings-layout{display:grid;gap:14px}.settings-section{padding:22px 0;border-top:1px solid var(--border)}.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.section-heading h2{margin:0;font-size:16px;font-weight:650;line-height:1.45}.section-heading p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.6}.profile-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:var(--accent);color:var(--page-bg);font-size:15px;font-weight:650}.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}.field{display:grid;gap:7px;color:var(--fg);font-size:12px;font-weight:550}.field input,.setting-row select{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--fg);font:400 13px/1.5 var(--font-body);outline:0}.field input:focus,.setting-row select:focus{border-color:var(--fg);box-shadow:0 0 0 2px color-mix(in oklch,var(--fg) 14%,transparent)}.setting-row{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:66px;padding:14px 0;border-bottom:1px solid var(--border)}.setting-row>div{display:grid;gap:4px;min-width:0}.setting-row strong{font-size:13px;font-weight:550}.setting-row span{color:var(--muted);font-size:12px;line-height:1.5}.setting-row select{width:150px;min-height:38px}.data-actions{display:flex;align-items:center;gap:12px;margin-top:20px}.secondary-button{min-height:42px;padding:0 16px;border:1px solid var(--fg);border-radius:11px;background:var(--fg);color:var(--page-bg);font-size:13px;font-weight:550;white-space:nowrap}.secondary-button:hover{background:var(--accent-hover)}.text-button{min-height:42px;padding:0 3px;color:var(--muted);font-size:12px;white-space:nowrap}.text-button:hover{color:var(--danger)}.save-status{margin:13px 0 0;color:var(--muted);font-size:12px}.data-section{padding-bottom:0}
-@media (max-width:700px){.settings-page{min-height:auto;overflow:visible}.settings-page.settings-content{width:100%;padding:28px 0 40px}.settings-head{padding-top:0}.profile-grid{grid-template-columns:1fr}.setting-row{min-height:70px}.setting-row select{width:132px}.data-actions{align-items:flex-start;flex-direction:column;gap:6px}.secondary-button,.text-button{min-height:44px}.settings-section{padding:20px 0}}
-@media (prefers-reduced-motion:reduce){.secondary-button{transition:none}}
+.settings-page{min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.settings-content{position:relative;z-index:1;width:min(900px,100%);margin:auto;padding:clamp(26px,5vh,70px) 0 clamp(30px,5vh,72px)}.settings-head{padding:clamp(8px,3vh,40px) 0 30px}.eyebrow{margin:0 0 14px;color:var(--accent);font-size:11px;letter-spacing:.08em;font-weight:600}.settings-head h1{margin:0;font-family:var(--font-display);font-size:clamp(32px,4.4vw,54px);line-height:1.3;font-weight:900;letter-spacing:-.025em}.intro-copy{max-width:48ch;margin:16px 0 0;color:var(--muted);font-size:14px;line-height:1.8}.settings-layout{display:grid;gap:14px}.settings-section{padding:22px 0;border-top:1px solid var(--border)}.section-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.section-heading h2{margin:0;font-size:16px;font-weight:650;line-height:1.45}.section-heading p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.6}.profile-mark{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:var(--accent);color:var(--page-bg);font-size:15px;font-weight:650}.profile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}.field{display:grid;gap:7px;color:var(--fg);font-size:12px;font-weight:550}.field .composer-shell{display:block;width:100%;min-height:44px}.field input{display:block;width:100%;min-height:42px;padding:0 12px;border:0;border-radius:inherit;background:transparent;color:var(--fg);font:400 13px/1.5 var(--font-body);outline:0}.setting-row .select-shell{flex:0 0 auto;width:150px}.setting-row{display:flex;align-items:center;justify-content:space-between;gap:18px;min-height:66px;padding:14px 0;border-bottom:1px solid var(--border)}.setting-row>div{display:grid;gap:4px;min-width:0}.setting-row strong{font-size:13px;font-weight:550}.setting-row span{color:var(--muted);font-size:12px;line-height:1.5}.data-actions{display:flex;align-items:center;gap:12px;margin-top:20px}.secondary-button{min-height:42px;padding:0 16px;border:1px solid var(--fg);border-radius:11px;background:var(--fg);color:var(--page-bg);font-size:13px;font-weight:550;white-space:nowrap}.secondary-button:hover{background:var(--accent-hover)}.text-button{min-height:42px;padding:0 3px;color:var(--muted);font-size:12px;white-space:nowrap}.text-button:hover{color:var(--danger)}.save-status{margin:13px 0 0;color:var(--muted);font-size:12px}.settings-section[data-od-id="appearance-settings"] .setting-row{border-bottom:0}.data-section{padding-bottom:0}
+@media (max-width:700px){.settings-page{min-height:auto;overflow:visible}.settings-content{width:100%;padding:28px 0 40px}.settings-head{padding-top:0}.profile-grid{grid-template-columns:1fr}.setting-row{min-height:70px}.setting-row .select-shell{width:132px}.data-actions{align-items:flex-start;flex-direction:column;gap:6px}.secondary-button,.text-button{min-height:44px}.settings-section{padding:20px 0}}
+@media (prefers-reduced-motion:reduce){.secondary-button,.composer-shell,.field input{transition:none;animation:none}}
 </style>
+
+
+
+
 
 
 

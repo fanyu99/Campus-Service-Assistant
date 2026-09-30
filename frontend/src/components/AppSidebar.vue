@@ -100,7 +100,7 @@ function dismissNotice(id: string) {
       <span class="profile-meta"><strong>林同学</strong><span>本科生 · 一校区</span></span>
     </div>
     <div class="bar-actions">
-      <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button-mobile" @click="dismissNotice('notification-button-mobile')"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
+      <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button-mobile"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
       <span class="avatar" role="img" aria-label="当前用户：林同学">林</span>
     </div>
   </aside>
@@ -109,9 +109,10 @@ function dismissNotice(id: string) {
 <style scoped>
 .sidebar{position:relative;z-index:3;flex:0 0 200px;width:200px;display:flex;flex-direction:column;padding:22px 14px 16px}
 .brand{display:flex;align-items:center;gap:10px;padding:0 6px 22px}
-.brand-mark{display:block;width:32px;height:32px;flex:0 0 auto;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(80,30,10,.14)}
+.brand-mark{position:relative;display:block;width:32px;height:32px;flex:0 0 auto;border-radius:50%;background:#fff;box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 0 16px color-mix(in srgb,var(--accent) 38%,transparent),0 1px 3px rgba(80,30,10,.14);animation:brand-mark-glow 2.6s ease-in-out infinite}
 .brand strong{font-family:var(--font-display);font-weight:900;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
 .primary-nav,.secondary-nav{display:grid;gap:3px}
+@keyframes brand-mark-glow{0%,100%{filter:drop-shadow(0 0 0 color-mix(in srgb,var(--accent) 0%,transparent));transform:scale(1)}50%{filter:drop-shadow(0 0 9px color-mix(in srgb,var(--accent) 72%,transparent));transform:scale(1.04)}}
 .secondary-nav{padding-top:12px;border-top:1px solid var(--border);margin-top:12px}
 .nav-item{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:0 10px;border-radius:11px;
   color:var(--muted);font-size:13.5px;text-align:left;text-decoration:none;transition:background .16s ease,color .16s ease,transform .16s ease}
@@ -121,11 +122,17 @@ function dismissNotice(id: string) {
 .nav-item.active{background:var(--accent-soft);color:var(--accent);font-weight:500}
 .nav-item.active:hover{color:var(--accent)}
 /* tooltip：悬停或键盘聚焦时显示对应页面名 */
-.nav-item::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);top:50%;
-  transform:translateY(-50%) scale(.96);transform-origin:left center;padding:6px 10px;border-radius:9px;
-  background:var(--fg);color:var(--page-bg);font-size:12px;line-height:1;white-space:nowrap;opacity:0;pointer-events:none;
-  transition:opacity .14s ease,transform .14s ease;z-index:20}
-.nav-item:hover::after,.nav-item:focus-visible::after{opacity:1;transform:translateY(-50%) scale(1)}
+.nav-item::before,.nav-item::after{position:absolute;opacity:0;pointer-events:none;z-index:20;
+  transition:opacity .22s ease,transform .22s cubic-bezier(.2,.8,.2,1)}
+.nav-item::before{content:'';left:calc(100% + 6px);top:calc(50% - 4px);width:9px;height:9px;
+  border-bottom:1px solid var(--tooltip-border);border-left:1px solid var(--tooltip-border);background:var(--tooltip-bg);
+  transform:translateX(-5px) rotate(45deg)}
+.nav-item::after{content:attr(data-tip);left:calc(100% + 10px);top:50%;transform:translate(-5px,-50%) scale(.96);transform-origin:left center;
+  padding:9px 12px;border:1px solid var(--tooltip-border);border-radius:10px 14px;background:var(--tooltip-bg);box-shadow:var(--tooltip-shadow);
+  color:var(--tooltip-text);font-size:12px;font-weight:500;line-height:1.2;letter-spacing:.01em;white-space:nowrap}
+.nav-item:hover::before,.nav-item:focus-visible::before{opacity:1;transform:translateX(0) rotate(45deg)}
+.nav-item:hover::after,.nav-item:focus-visible::after{opacity:1;transform:translate(0,-50%) scale(1)}
+@media (hover:none){.nav-item::before,.nav-item::after{display:none}}
 .sidebar-spacer{flex:1;min-height:16px}
 .side-status{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:11px;background:var(--row-hover);color:var(--muted);font-size:11.5px;line-height:1.45}
 .status-dot{width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:oklch(60% .13 148)}
@@ -143,10 +150,13 @@ function dismissNotice(id: string) {
   .brand strong{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .nav-item{justify-content:center;gap:0;padding:0}
   .nav-item > span{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  .side-status,.profile-meta,.secondary-nav{display:none}
+  .side-status,.profile-meta{display:none}
   .profile{justify-content:center}
 }
-@media (max-height:600px) and (min-width:701px){.secondary-nav,.profile{display:none}}
+@media (max-height:600px) and (min-width:701px){
+  .sidebar{overflow-y:auto;scrollbar-width:thin}
+  .sidebar-spacer{min-height:8px}
+}
 
 /* ── 移动端（≤700px）────────────────────────────────────────────────── */
 @media (max-width:700px){
@@ -156,16 +166,20 @@ function dismissNotice(id: string) {
   .brand strong{position:static;width:auto;height:auto;margin:0;overflow:hidden;clip:auto;display:block;font-size:14px;
     min-width:0;white-space:nowrap;text-overflow:ellipsis}
   .brand-mark{width:34px;height:34px}
-  .sidebar-spacer,.side-status,.secondary-nav,.profile{display:none}
-  .primary-nav{display:flex;gap:2px}
+  .sidebar-spacer,.side-status,.profile{display:none}
+  .primary-nav,.secondary-nav{display:flex;gap:2px;padding:0;margin:0;border:0}
+  .secondary-nav{border-left:1px solid var(--border);padding-left:6px;margin-left:2px}
   .nav-item{width:44px;height:44px;min-height:44px;justify-content:center;padding:0;border-radius:12px}
   .nav-item .i{width:19px;height:19px}
-  .nav-item::after{left:50%;top:calc(100% + 8px);transform:translateX(-50%) scale(.96);transform-origin:center top}
-  .nav-item:hover::after,.nav-item:focus-visible::after{transform:translateX(-50%) scale(1)}
+  .nav-item::before{left:calc(50% - 4px);top:calc(100% + 4px);transform:translateY(5px) rotate(45deg)}
+  .nav-item::after{left:50%;top:calc(100% + 8px);transform:translate(-50%,5px) scale(.96);transform-origin:center top}
+  .nav-item:hover::before,.nav-item:focus-visible::before{transform:translateY(0) rotate(45deg)}
+  .nav-item:hover::after,.nav-item:focus-visible::after{transform:translate(-50%,0) scale(1)}
   .bar-actions{display:flex;align-items:center;gap:2px;padding-left:6px;border-left:1px solid var(--border)}
   .bar-actions .icon-btn{width:44px;height:44px}
   .bar-actions .avatar{display:none}
 }
 @media (max-width:380px){.brand strong{display:none}}
 </style>
+
 

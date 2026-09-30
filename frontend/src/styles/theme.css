@@ -16,6 +16,10 @@
 }
 
 :root {
+  /* 告诉浏览器用浅色渲染「原生控件与浏览器自带 UI」：select 下拉弹层、滚动条、
+     日期选择器、拼写下划线等。它们由浏览器绘制，不受 --surface 等变量影响，
+     只能靠 color-scheme 切换。深色主题在 html[data-theme='dark'] 里覆盖成 dark。 */
+  color-scheme: light;
   /* 调色板取自角色图真实像素；强调色 = 头发色相 */
   --page-bg: #fdfdfd;
   /* = 角色图顶边 4px 带实测均值 #fdfdfd */
@@ -44,12 +48,24 @@
   --fx-ripple: oklch(56% .19 28);
   --fx-water: 27, 49, 65;
   --fx-water-highlight: oklch(68% .14 28 / .48);
-  --fx-field-outline-alpha: .56;
-  --fx-field-glow-strength: .68;
+  /* 樱花排斥力场仅保留物理交互，不绘制轮廓或光晕。 */
+  --fx-field-outline-alpha: 0;
+  --fx-field-glow-strength: 0;
   /* #ffe7dd 当前页底；与强调色 4.80:1 */
   --danger: oklch(47% .17 27);
   /* #a51f1e 对页面 7.34:1 */
   --row-hover: oklch(94% .016 45);
+  --tooltip-bg: oklch(99% .007 55 / .98);
+  --tooltip-text: var(--fg);
+  --tooltip-muted: var(--muted);
+  --tooltip-border: oklch(83% .055 36 / .8);
+  --tooltip-shadow: 0 16px 34px oklch(24% .025 38 / .16), inset 0 1px 0 oklch(100% 0 0 / .76);
+  --composer-grid-line: oklch(47% .08 36 / .10);
+  --composer-grid-fade: oklch(98% .008 55 / .78);
+  --composer-hover-glow: oklch(60% .23 32 / .34);
+  --composer-focus-glow: oklch(58% .25 34 / .48);
+  --composer-flow-hot: oklch(69% .20 48);
+  --composer-flow-bright: oklch(76% .16 72);
   /* 悬停底：L 相对页面下移 .06 */
   /* 动态色块层（沿用原首页 hero 的结构，配色改为角色发色） */
   --font-display: 'Epilogue', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
@@ -58,6 +74,7 @@
 
 /* ── 深色主题（设置页“页面外观 > 主题”切换；跟随系统由 useTheme 处理）────── */
 html[data-theme='dark'] {
+  color-scheme: dark;
   --page-bg: oklch(17% .012 40);
   --surface: oklch(22% .016 42);
   --fg: oklch(93% .012 55);
@@ -68,6 +85,17 @@ html[data-theme='dark'] {
   --accent-soft: oklch(30% .05 40);
   --danger: oklch(65% .16 27);
   --row-hover: oklch(27% .02 45);
+  --tooltip-bg: oklch(24% .018 42 / .98);
+  --tooltip-text: oklch(96% .008 55);
+  --tooltip-muted: oklch(76% .025 48);
+  --tooltip-border: oklch(68% .11 38 / .68);
+  --tooltip-shadow: 0 18px 38px oklch(5% .01 40 / .46), inset 0 1px 0 oklch(100% 0 0 / .08);
+  --composer-grid-line: oklch(78% .08 38 / .13);
+  --composer-grid-fade: oklch(22% .016 42 / .80);
+  --composer-hover-glow: oklch(75% .22 40 / .40);
+  --composer-focus-glow: oklch(78% .20 46 / .56);
+  --composer-flow-hot: oklch(80% .18 48);
+  --composer-flow-bright: oklch(88% .13 78);
   --fx-orb-1: oklch(55% .13 36 / .16);
   --fx-orb-2: oklch(42% .09 40 / .18);
   --fx-dot: oklch(50% .12 36 / .14);
@@ -80,8 +108,9 @@ html[data-theme='dark'] {
   --fx-ripple: oklch(80% .14 28 / .8);
   --fx-water: 38, 55, 69;
   --fx-water-highlight: oklch(79% .11 30 / .38);
-  --fx-field-outline-alpha: .16;
-  --fx-field-glow-strength: .18;
+  /* 樱花排斥力场仅保留物理交互，不绘制轮廓或光晕。 */
+  --fx-field-outline-alpha: 0;
+  --fx-field-glow-strength: 0;
 }
 
 *,
@@ -113,6 +142,14 @@ textarea {
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* ── 原生控件配色 ───────────────────────────────────────────────────────
+   注：站内的下拉选择统一用自绘组件 `components/AppSelect.vue`，不用原生 <select>。
+   原因是原生下拉弹层由浏览器绘制，「当前选中项」的高亮色完全无法用 CSS 定制
+   （option:checked / option:hover / accent-color 实测均被忽略），深色主题下会出现
+   「浅色文字压在浅蓝高亮上」的低对比度问题（实测 2.96:1，低于 AA 的 4.5:1）。
+   这里只保留全局的 color-scheme（见 :root 与 html[data-theme='dark']），
+   它负责滚动条、输入框光标、拼写检查下划线等其余浏览器自带 UI 的明暗。 */
 
 button {
   white-space: nowrap;
@@ -233,27 +270,61 @@ ul {
   color: var(--fg);
 }
 
-.icon-btn::after {
-  content: attr(data-tip);
+/* ── 悬浮信息：沿用暖红强调色，文字随主题自动切换 ─────────────── */
+.icon-btn[data-tip]::before,
+.icon-btn[data-tip]::after {
   position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  padding: 6px 10px;
-  border-radius: 9px;
-  background: var(--fg);
-  color: var(--page-bg);
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .14s ease;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.2, .8, .2, 1);
   z-index: 20;
 }
 
-.icon-btn:hover::after,
-.icon-btn:focus-visible::after {
+.icon-btn[data-tip]::before {
+  content: '';
+  top: calc(100% + 4px);
+  right: 12px;
+  width: 9px;
+  height: 9px;
+  border-top: 1px solid var(--tooltip-border);
+  border-left: 1px solid var(--tooltip-border);
+  background: var(--tooltip-bg);
+  transform: translateY(5px) rotate(45deg);
+}
+
+.icon-btn[data-tip]::after {
+  content: attr(data-tip);
+  top: calc(100% + 8px);
+  right: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--tooltip-border);
+  border-radius: 10px 14px;
+  background: var(--tooltip-bg);
+  box-shadow: var(--tooltip-shadow);
+  color: var(--tooltip-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  transform: translateY(5px) scale(.96);
+}
+
+.icon-btn[data-tip]:hover::before,
+.icon-btn[data-tip]:focus-visible::before {
   opacity: 1;
+  transform: translateY(0) rotate(45deg);
+}
+
+.icon-btn[data-tip]:hover::after,
+.icon-btn[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (hover: none) {
+  .icon-btn[data-tip]::before,
+  .icon-btn[data-tip]::after { display: none; }
 }
 
 .dot-badge {
@@ -320,5 +391,127 @@ ul {
 
 
 
+
+
+
+/* ── 统一动态输入框外壳：完整复刻「首页 / 我的对话」composer 的
+      渐变描边 + 动态网格 + 边框流光 + 主题色光晕 ── */
+.composer-shell {
+  --composer-shell-radius: 24px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--composer-shell-radius);
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(110deg, var(--border), color-mix(in srgb, var(--accent) 42%, var(--border)), var(--border)) border-box;
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--fg) 4%, transparent);
+  transition: box-shadow .24s ease, background .3s ease, transform .24s ease;
+}
+.composer-shell::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  opacity: .74;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--composer-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--composer-grid-line) 1px, transparent 1px),
+    linear-gradient(135deg, transparent 0 53%, var(--composer-grid-fade) 78%);
+  background-size: 16px 16px, 16px 16px, 100% 100%;
+  background-position: center;
+  transition: opacity .24s ease, filter .3s ease;
+}
+.composer-shell::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 15%, var(--composer-flow-hot) 40%, var(--composer-flow-bright) 50%, var(--accent) 60%, transparent 85%);
+  background-size: 220% 100%;
+  background-position: 100% 50%;
+  filter: drop-shadow(0 0 6px var(--composer-hover-glow));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity .2s ease, filter .2s ease;
+}
+.composer-shell > *:not(.sr-only) { position: relative; z-index: 1; }
+.composer-shell:hover {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(118deg, var(--accent-hover), var(--accent), var(--accent-hover)) border-box;
+  box-shadow: 0 0 0 2px var(--composer-hover-glow), 0 0 22px var(--composer-hover-glow), 0 14px 30px color-mix(in srgb, var(--composer-hover-glow) 60%, transparent);
+}
+.composer-shell:hover::before { opacity: 1; filter: saturate(1.25) contrast(1.08); animation: composer-shell-grid-drift 2.6s linear infinite; }
+.composer-shell:hover::after { opacity: .9; animation: composer-shell-border-flow 2s linear infinite; }
+.composer-shell:focus-within {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(125deg, var(--composer-flow-hot), var(--composer-flow-bright), var(--accent)) border-box;
+  box-shadow: 0 0 0 3px var(--composer-focus-glow), 0 0 30px var(--composer-focus-glow), 0 16px 38px color-mix(in srgb, var(--composer-focus-glow) 64%, transparent);
+}
+.composer-shell:focus-within::before { opacity: 1; filter: saturate(1.4) contrast(1.12); animation: composer-shell-grid-drift 1.35s linear infinite; }
+.composer-shell:focus-within::after { opacity: 1; filter: drop-shadow(0 0 10px var(--composer-focus-glow)); animation: composer-shell-border-flow 1.05s linear infinite; }
+.composer-shell.is-invalid {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(125deg, var(--danger), color-mix(in srgb, var(--danger) 42%, var(--border)), var(--danger)) border-box;
+}
+@keyframes composer-shell-grid-drift { from { background-position: 0 0, 0 0, center; } to { background-position: 32px 32px, 32px 32px, center; } }
+@keyframes composer-shell-border-flow { from { background-position: 100% 50%; } to { background-position: -120% 50%; } }
+/* ── 输入框内部旋转射线：覆盖网格但位于文字与操作区之后 ── */
+.spark-button { position: relative; isolation: isolate; overflow: hidden; border: 1px solid transparent !important; border-radius: 999px !important; background: linear-gradient(var(--accent), var(--accent)) padding-box, linear-gradient(120deg, var(--accent-hover), var(--composer-flow-bright), var(--accent)) border-box !important; color: var(--page-bg) !important; box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 24%, transparent); transition: transform .22s ease, box-shadow .22s ease, filter .22s ease; }
+.spark-button::before { content: ''; position: absolute; z-index: -1; inset: 0; background: radial-gradient(circle at 22% 0%, color-mix(in srgb, #fff 36%, transparent), transparent 42%), linear-gradient(110deg, transparent 15%, color-mix(in srgb, #fff 26%, transparent) 50%, transparent 85%); opacity: 0; transform: translateX(-65%); transition: opacity .22s ease, transform .55s ease; }
+.spark-button:hover, .spark-button:focus-visible { transform: translateY(-2px); filter: saturate(1.12); box-shadow: 0 11px 28px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent); }
+.spark-button:hover::before, .spark-button:focus-visible::before { opacity: 1; transform: translateX(65%); }
+.spark-button:active { transform: translateY(0) scale(.98); }
+@media (prefers-reduced-motion: reduce) { .composer-shell, .composer-shell::before, .composer-shell::after, .spark-button, .spark-button::before { transition: none; animation: none; } }
+
+/* ── 角色消息气泡（首页「托腮角色」与通知弹窗角色共用）────────────────────
+   视觉样式（底色 / 描边 / 圆角 / 小箭头 / 弹出动画）在此统一，
+   摆放位置由使用方决定，通过两个自定义属性传入：
+     --bubble-rest     静止时的 transform（如 translateX(-18%) / translateX(-50%)）
+     --bubble-arrow-x  小箭头在气泡内的水平位置，默认 50%（居中）            */
+.character-bubble {
+  position: absolute;
+  z-index: 3;
+  width: max-content;
+  max-width: min(300px, 76vw);
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--fg) 8%, transparent);
+  transform: var(--bubble-rest, translateX(0));
+  animation: bubble-pop .24s ease both;
+}
+.character-bubble::after {
+  content: "";
+  position: absolute;
+  left: var(--bubble-arrow-x, 50%);
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transform: translateX(-50%) rotate(45deg);
+}
+@keyframes bubble-pop {
+  from { opacity: 0; transform: var(--bubble-rest, translateX(0)) translateY(4px) scale(.98); }
+  to { opacity: 1; transform: var(--bubble-rest, translateX(0)); }
+}
+@media (prefers-reduced-motion: reduce) { .character-bubble { animation: none; } }
 
 

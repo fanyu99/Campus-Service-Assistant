@@ -1,6 +1,7 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 
 import { computed, ref } from 'vue'
+import AnimatedButton from '../components/AnimatedButton.vue'
 
 const query = ref('')
 const activeCategory = ref('全部')
@@ -41,10 +42,9 @@ function dismissNotice() {
 
     <section class="help-content" data-od-id="help-content">
       <div class="help-intro" data-od-id="help-intro">
-        <p class="eyebrow">快速找到答案</p>
         <h1 data-od-id="help-heading">使用帮助</h1>
 
-        <label class="help-search" data-od-id="help-search"><svg class="i" aria-hidden="true"><use href="#i-search" /></svg><span class="sr-only">搜索帮助内容</span><input v-model="query" type="search" placeholder="搜索问题或关键词" autocomplete="off" /><button v-if="query" type="button" class="clear-search" aria-label="清空搜索" @click="query = ''">清除</button></label>
+        <label class="help-search composer-shell" data-od-id="help-search"><svg class="i" aria-hidden="true"><use href="#i-search" /></svg><span class="sr-only">搜索帮助内容</span><input v-model="query" type="search" placeholder="搜索问题或关键词" autocomplete="off" /><button v-if="query" type="button" class="clear-search" aria-label="清空搜索" @click="query = ''">清除</button></label>
         <div class="help-categories" role="list" aria-label="帮助分类" data-od-id="help-categories"><button v-for="category in categories" :key="category" type="button" class="category-tab" :class="{ 'is-active': activeCategory === category }" :aria-pressed="activeCategory === category" @click="activeCategory = category">{{ category }}</button></div>
       </div>
 
@@ -56,21 +56,30 @@ function dismissNotice() {
             <p v-if="openId === item.id" class="faq-answer">{{ item.answer }}</p>
           </article>
         </div>
-        <div v-else class="empty-state" data-od-id="help-empty"><h2>没有找到相关问题</h2><p>换一个关键词试试，或直接进入对话描述你的情况。</p><RouterLink class="text-action" :to="{ name: 'chat' }">开始咨询<svg class="i" aria-hidden="true"><use href="#i-chev" /></svg></RouterLink></div>
+        <div v-else class="empty-state" data-od-id="help-empty"><h2>没有找到相关问题</h2><p>换一个关键词试试，或直接进入对话描述你的情况。</p><RouterLink class="text-action spark-button" :to="{ name: 'chat' }">开始咨询<svg class="i" aria-hidden="true"><use href="#i-chev" /></svg></RouterLink></div>
       </section>
 
-      <aside class="help-contact" data-od-id="help-contact"><div><p class="contact-label">还需要帮助？</p><h2>直接描述你的问题</h2><p>如果帮助内容没有覆盖你的情况，可以让助手根据具体场景继续判断。</p></div><RouterLink class="contact-link" :to="{ name: 'chat' }">进入我的对话<svg class="i" aria-hidden="true"><use href="#i-chev" /></svg></RouterLink></aside>
+      <aside class="help-contact" data-od-id="help-contact"><div><p class="contact-label">还需要帮助？</p><h2>直接描述你的问题</h2><p>如果帮助内容没有覆盖你的情况，可以让助手根据具体场景继续判断。</p></div><AnimatedButton :to="{ name: 'chat' }" data-od-id="help-contact-link">进入我的对话</AnimatedButton></aside>
     </section>
   </main>
 </template>
 
 <style scoped>
-.help-page{overflow:hidden}
-.help-content{position:relative;z-index:1;width:min(1020px,100%);margin:auto;padding:clamp(26px,5vh,70px) 0 clamp(30px,5vh,72px)}.help-intro{max-width:680px;padding:clamp(8px,3vh,40px) 0 26px}.eyebrow{margin:0 0 14px;color:var(--accent);font-size:11px;letter-spacing:.08em;font-weight:600}.help-intro h1{margin:0;font-family:var(--font-display);font-size:clamp(32px,4.4vw,54px);line-height:1.3;font-weight:900;letter-spacing:-.025em}.help-search{display:flex;align-items:center;gap:9px;margin-top:25px;min-height:48px;padding:0 13px;border:1px solid var(--border);border-radius:14px;background:var(--surface);transition:border-color .16s ease,box-shadow .16s ease}.help-search:focus-within{border-color:var(--fg);box-shadow:0 0 0 2px color-mix(in oklch,var(--fg) 14%,transparent)}.help-search .i{width:16px;height:16px;color:var(--muted)}.help-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--fg);font:400 13px/1.5 var(--font-body)}.help-search input::placeholder{color:var(--muted)}.clear-search{flex:0 0 auto;color:var(--muted);font-size:12px;white-space:nowrap}.clear-search:hover{color:var(--fg)}.help-categories{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}.category-tab{min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted);font-size:12px;white-space:nowrap;transition:background .16s ease,color .16s ease,border-color .16s ease}.category-tab:hover{border-color:var(--fg);color:var(--fg)}.category-tab.is-active{border-color:var(--fg);background:var(--fg);color:var(--page-bg)}
-.faq-section{max-width:860px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 0 13px;border-bottom:1px solid var(--border);color:var(--fg);font-size:13px;font-weight:550}.result-count{color:var(--muted);font-size:12px;font-weight:400;white-space:nowrap}.faq-list{display:grid}.faq-item{border-bottom:1px solid var(--border)}.faq-question{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:64px;padding:0;text-align:left;color:var(--fg);font-size:14px;font-weight:550;white-space:nowrap}.faq-question .i{flex:0 0 auto;width:15px;height:15px;transform:rotate(90deg);transition:transform .18s ease}.faq-item.is-open .faq-question .i{transform:rotate(-90deg)}.faq-answer{max-width:72ch;margin:0;padding:0 32px 18px 0;color:var(--muted);font-size:13px;line-height:1.8;user-select:text;-webkit-user-select:text}.empty-state{padding:44px 0;border-bottom:1px solid var(--border)}.empty-state h2{margin:0;font-size:16px;font-weight:550}.empty-state p{margin:8px 0 16px;color:var(--muted);font-size:13px;line-height:1.7}.text-action,.contact-link{display:inline-flex;align-items:center;gap:6px;color:var(--fg);font-size:13px;font-weight:550;text-decoration:none;white-space:nowrap}.text-action:hover,.contact-link:hover{color:var(--accent)}.text-action .i,.contact-link .i{width:14px;height:14px}.help-contact{display:flex;align-items:center;justify-content:space-between;gap:22px;margin-top:40px;padding:24px 26px;border:1px solid var(--border);border-radius:18px;background:color-mix(in oklch,var(--surface) 78%,transparent)}.contact-label{margin:0 0 8px;color:var(--accent);font-size:11px;font-weight:600;letter-spacing:.06em}.help-contact h2{margin:0;font-family:var(--font-display);font-size:20px;font-weight:800;line-height:1.35}.help-contact p:last-child{max-width:48ch;margin:7px 0 0;color:var(--muted);font-size:12px;line-height:1.7}.contact-link{flex:0 0 auto;min-height:42px;padding:0 15px;border:1px solid var(--fg);border-radius:12px}
-@media (max-width:700px){.help-page{overflow:visible}.help-content{width:100%;padding:28px 0 40px}.help-intro{padding-top:0}.help-categories{overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}.category-tab{flex:0 0 auto;min-height:40px}.faq-question{min-height:60px;white-space:normal}.faq-answer{padding-right:22px}.help-contact{align-items:flex-start;flex-direction:column;margin-top:32px;padding:20px}.contact-link{min-height:44px}}
-@media (prefers-reduced-motion:reduce){.faq-question,.category-tab,.contact-link{transition:none}}
+/* .main 在 .app-shell（height:100vh + overflow:hidden）里被钉死高度，
+   所以「页面级滚动」必须由 .main 自己承担：overflow-y:auto 建立滚动容器，
+   否则内容超过一屏会被直接裁掉、滚轮和键盘都够不到（FAQ 变多或窗口变矮时就会踩到）。
+   与 SettingsView 的 .settings-page 保持同一写法。 */
+.help-page{min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.help-content{position:relative;z-index:1;width:min(1020px,100%);margin:auto;padding:clamp(26px,5vh,70px) 0 clamp(30px,5vh,72px)}.help-intro{max-width:680px;padding:clamp(8px,3vh,40px) 0 26px}.eyebrow{margin:0 0 14px;color:var(--accent);font-size:11px;letter-spacing:.08em;font-weight:600}.help-intro h1{margin:0;font-family:var(--font-display);font-size:clamp(32px,4.4vw,54px);line-height:1.3;font-weight:900;letter-spacing:-.025em}.help-search{display:flex;align-items:center;gap:9px;margin-top:25px;min-height:48px;padding:0 13px}.help-search .i{width:16px;height:16px;color:var(--muted)}.help-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--fg);font:400 13px/1.5 var(--font-body)}.help-search input::placeholder{color:var(--muted)}.clear-search{flex:0 0 auto;color:var(--muted);font-size:12px;white-space:nowrap}.clear-search:hover{color:var(--fg)}.help-categories{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}.category-tab{min-height:36px;padding:0 12px;border:1px solid var(--border);border-radius:999px;background:transparent;color:var(--muted);font-size:12px;white-space:nowrap;transition:background .16s ease,color .16s ease,border-color .16s ease}.category-tab:hover{border-color:var(--fg);color:var(--fg)}.category-tab.is-active{border-color:var(--fg);background:var(--fg);color:var(--page-bg)}
+.faq-section{max-width:860px}.section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 0 13px;border-bottom:1px solid var(--border);color:var(--fg);font-size:13px;font-weight:550}.result-count{color:var(--muted);font-size:12px;font-weight:400;white-space:nowrap}.faq-list{display:grid}.faq-item{border-bottom:1px solid var(--border)}.faq-question{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:64px;padding:0;text-align:left;color:var(--fg);font-size:14px;font-weight:550;white-space:nowrap}.faq-question .i{flex:0 0 auto;width:15px;height:15px;transform:rotate(90deg);transition:transform .18s ease}.faq-item.is-open .faq-question .i{transform:rotate(-90deg)}.faq-answer{max-width:72ch;margin:0;padding:0 32px 18px 0;color:var(--muted);font-size:13px;line-height:1.8;user-select:text;-webkit-user-select:text}.empty-state{padding:44px 0;border-bottom:1px solid var(--border)}.empty-state h2{margin:0;font-size:16px;font-weight:550}.empty-state p{margin:8px 0 16px;color:var(--muted);font-size:13px;line-height:1.7}.text-action{display:inline-flex;align-items:center;gap:6px;color:var(--fg);font-size:13px;font-weight:550;text-decoration:none;white-space:nowrap}.text-action:hover{color:var(--accent)}.text-action .i{width:14px;height:14px}.help-contact{display:flex;align-items:center;justify-content:space-between;gap:22px;margin-top:40px;padding:24px 26px;border:1px solid var(--border);border-radius:18px;background:color-mix(in oklch,var(--surface) 78%,transparent)}.contact-label{margin:0 0 8px;color:var(--accent);font-size:11px;font-weight:600;letter-spacing:.06em}.help-contact h2{margin:0;font-family:var(--font-display);font-size:20px;font-weight:800;line-height:1.35}.help-contact p:last-child{max-width:48ch;margin:7px 0 0;color:var(--muted);font-size:12px;line-height:1.7}
+@media (max-width:700px){.help-page{min-height:auto;overflow:visible}.help-content{width:100%;padding:28px 0 40px}.help-intro{padding-top:0}.help-categories{overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}.category-tab{flex:0 0 auto;min-height:40px}.faq-question{min-height:60px;white-space:normal}.faq-answer{padding-right:22px}.help-contact{align-items:flex-start;flex-direction:column;margin-top:32px;padding:20px}}
+@media (prefers-reduced-motion:reduce){.faq-question,.category-tab{transition:none}}
 </style>
+
+
+
+
+
 
 
 

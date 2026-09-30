@@ -1,0 +1,8 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    container_name: campus-service-assistant-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"

@@ -398,7 +398,12 @@ export class ParticleEngine {
   }
 
   private drawHeartField(): void {
-    if (!this.pointer.active || this.config.reducedMotion) return
+    if (
+      !this.pointer.active ||
+      this.config.reducedMotion ||
+      (this.config.fieldOutlineAlpha <= 0.01 && this.config.fieldGlowStrength <= 0.01)
+    ) return
+
     const scale = this.heartScale()
     const glowAlpha = (0.035 + this.pointer.speed * 0.045) * this.config.fieldGlowStrength * this.config.opacity
     const glow = this.ctx.createRadialGradient(this.pointer.x, this.pointer.y, scale * 0.18, this.pointer.x, this.pointer.y, scale * 1.5)
