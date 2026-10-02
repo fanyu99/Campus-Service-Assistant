@@ -130,7 +130,12 @@ onMounted(() => {
   createEngine()
   resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(document.documentElement)
-  themeObserver = new MutationObserver(() => createEngine())
+  themeObserver = new MutationObserver(() => {
+    createEngine()
+    // 立刻补画一帧：换主题可能正被 View Transitions 拍快照，只靠 rAF 会让
+    // 新快照里留着旧配色（粒子颜色与底色渐变都会滞后一拍）。
+    engine?.draw(1)
+  })
   themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
   window.addEventListener('resize', resize, { passive: true })
   window.addEventListener('pointerdown', onPointerDown, { passive: true })

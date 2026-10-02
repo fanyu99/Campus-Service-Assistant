@@ -90,6 +90,13 @@ onBeforeUnmount(() => {
     :ripple-limit="54"
     :opacity="0.82"
   />
+  <!-- 主题切换的圆形扩散：两层平时全屏透明，只是 view-transition-name 的载体。
+       扩散期间它们才开始绘制（颜色只能由实元素提供，伪元素自己的绘制会被快照
+       整块盖掉）：veil 画成整屏纯色、由伪元素的 mask 切成贴着水波前沿的大波峰；
+       pond 在触点周围画几圈同心波、由伪元素整体放大，模拟水滴落水的涟漪。
+       详见 styles/theme.css 的「主题切换：圆形扩散」。 -->
+  <div class="theme-ripple-veil" aria-hidden="true" />
+  <div class="theme-ripple-pond" aria-hidden="true" />
   <div class="app-shell">
     <AppSidebar />
     <Transition name="route" mode="out-in">
@@ -106,35 +113,66 @@ onBeforeUnmount(() => {
         <div class="character-bubble notification-bubble" role="status" aria-live="polite">{{ noticeMessage }}</div>
       </div>
 
-      <section class="notification-card" role="dialog" aria-modal="true" aria-labelledby="notification-title">
-        <button ref="noticeCloseButton" type="button" class="notification-close" aria-label="关闭通知" @click="closeNotice">
-          <span class="notification-close-mark" aria-hidden="true"></span>
-        </button>
-        <div class="notification-header">
-          <span class="notification-kicker">CAMPUS UPDATE</span>
-          <h2 id="notification-title">通知中心</h2>
-        </div>
-        <ul class="notification-list">
-          <li
-            v-for="item in notifications"
-            :key="item.id"
-            class="notification-item"
-            @mouseenter="noticeHover = item.bubble"
-            @mouseleave="noticeHover = null"
-          >
-            <span class="notification-item-icon"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></span>
-            <span class="notification-item-body"><span class="notification-item-meta"><strong>{{ item.type }}</strong><time>{{ item.time }}</time></span><b>{{ item.title }}</b><span>{{ item.detail }}</span></span>
-          </li>
-        </ul>
-      </section>
+      <div class="notification-card-frame">
+        <span class="notification-card-ring" aria-hidden="true"></span>
+        <section class="notification-card" role="dialog" aria-modal="true" aria-labelledby="notification-title">
+          <button ref="noticeCloseButton" type="button" class="notification-close" aria-label="关闭通知" @click="closeNotice">
+            <span class="notification-close-mark" aria-hidden="true"></span>
+          </button>
+          <div class="notification-header">
+            <span class="notification-kicker">CAMPUS UPDATE</span>
+            <h2 id="notification-title">通知中心</h2>
+          </div>
+          <ul class="notification-list">
+            <li
+              v-for="item in notifications"
+              :key="item.id"
+              class="notification-item"
+              @mouseenter="noticeHover = item.bubble"
+              @mouseleave="noticeHover = null"
+            >
+              <span class="notification-item-icon"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></span>
+              <span class="notification-item-body"><span class="notification-item-meta"><strong>{{ item.type }}</strong><time>{{ item.time }}</time></span><b>{{ item.title }}</b><span>{{ item.detail }}</span></span>
+            </li>
+          </ul>
+        </section>
+      </div>
     </div>
   </div>
 </template>
 <style scoped>
 .notification-modal{position:fixed;z-index:30;inset:0;display:grid;place-items:center;padding:clamp(24px,6vw,72px);background:color-mix(in srgb,var(--page-bg) 68%,#64748b 32% / 72%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.notification-dialog-shell{--char-width:min(380px,66vw);--char-height:calc(var(--char-width) * 0.69318);--char-gap:56px;--char-band:calc(var(--char-height) * 0.94918 - 6px + var(--char-gap));position:relative;width:min(620px,100%);padding-top:var(--char-band)}
-.notification-card{position:relative;z-index:1;width:100%;max-height:min(720px,calc(100vh - 48px));overflow:auto;padding:clamp(30px,4vw,44px) clamp(22px,5vw,48px) 28px;border:1px solid color-mix(in srgb,var(--border) 72%,white 28%);border-radius:32px;background:linear-gradient(145deg,color-mix(in srgb,var(--surface) 96%,white 4%),color-mix(in srgb,var(--surface) 90%,var(--accent-soft) 10%));box-shadow:0 32px 80px color-mix(in srgb,#172033 28%,transparent),0 8px 28px color-mix(in srgb,var(--fg) 10%,transparent);isolation:isolate}
-.notification-card::before{content:'';position:absolute;z-index:-1;inset:8px;border-radius:26px;border:1px solid color-mix(in srgb,var(--accent) 14%,transparent);pointer-events:none}
+.notification-dialog-shell{--char-width:min(380px,66vw);--char-height:calc(var(--char-width) * 0.69318);--char-gap:56px;--char-band:calc(var(--char-height) * 0.94918 - 6px + var(--char-gap));--notice-card-radius:32px;position:relative;width:min(620px,100%);padding-top:var(--char-band)}
+/* ── 通知卡片光效 ─────────────────────────────────────────────────────────
+   frame 只做定位与层叠上下文，真正画光的是三个层（从下往上）：
+     ::before  环境弥散光 —— 圆角矩形 + 柔和锥形双瓣，仅呼吸不旋转
+     ::after   底部呼吸背光 —— 径向渐变 + 动态模糊（blur 随呼吸变化）
+     .notification-card-ring  旋转渐变描边环（叠在卡片之上，靠 mask 只留 2px 边）
+   背光/环境光都在卡片之下，卡片不透明底自然盖住中心，只露出外圈 → 形成「光晕扩散」。
+   注意：卡片自身是 overflow:auto 的滚动容器，光效绝不能挂在卡片内部，
+   否则会被裁掉（abs 子元素还会跟着内容一起滚走），所以单独起一层 frame。 */
+.notification-card-frame{position:relative;z-index:1;width:100%;isolation:isolate}
+/* 环境弥散光：内容恒定不变（没有随时间的渐变角度变化），
+   所以 blur 只会被栅格化一次，动画只走 opacity → 全程合成层，不重绘。 */
+.notification-card-frame::before{content:'';position:absolute;z-index:0;inset:-18px;border-radius:calc(var(--notice-card-radius) + 18px);background:conic-gradient(from 208deg,transparent 0deg,var(--notice-aura-a) 58deg,transparent 148deg,var(--notice-aura-b) 232deg,transparent 322deg);filter:blur(26px);opacity:.6;pointer-events:none;animation:notice-aura-breathe 7.6s ease-in-out infinite}
+/* 底部呼吸背光：盒子比卡片宽 4%，向下溢出 70px，
+   亮芯落在卡片下沿附近（渐变 66% 处），只有露在卡片外的部分可见。
+   --notice-glow-fade 是同色相 alpha=0，避免插值出灰边。 */
+.notification-card-frame::after{content:'';position:absolute;z-index:0;left:-4%;right:-4%;bottom:-70px;height:200px;border-radius:50%;background:radial-gradient(62% 100% at 50% 66%,var(--notice-glow-core) 0%,var(--notice-glow-halo) 42%,var(--notice-glow-fade) 76%);filter:blur(30px);opacity:.72;pointer-events:none;transform-origin:50% 100%;animation:notice-glow-breathe 6.4s ease-in-out infinite;will-change:opacity,transform,filter}
+/* 旋转描边环：外层 inset:-2px / padding:2px + xor 掩膜 = 只保留 2px 宽的边带
+   （与 theme.css 的 .composer-shell::after 同一套掩膜写法）。
+   内层 ::before 是一个 300% 见方的 conic 渐变方块，用 transform:rotate 旋转 —— 
+   纯合成层动画，不重绘渐变；旋转的是方块而不是渐变角度，
+   所以掩膜（在父层坐标系里）不会跟着转，边带形状始终贴合卡片圆角。
+   300% 是安全余量：只要卡片高宽比 < 2.83，方块任意角度都能盖满父层。
+   overflow:hidden 把栅格范围收在卡片尺寸内，避免按 9 倍面积去栅格。 */
+.notification-card-ring{position:absolute;z-index:2;inset:-2px;padding:2px;border-radius:calc(var(--notice-card-radius) + 2px);overflow:hidden;pointer-events:none;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask-composite:exclude}
+.notification-card-ring::before{content:'';position:absolute;left:50%;top:50%;width:300%;aspect-ratio:1;background:conic-gradient(from 0deg,var(--notice-ring-fade) 0deg,var(--notice-ring-tail) 30deg,var(--notice-ring-fade) 118deg,var(--notice-ring-fade) 360deg),conic-gradient(from 0deg,var(--notice-ring-fade) 0deg,var(--notice-ring-hot) 50deg,var(--notice-ring-bright) 68deg,var(--notice-ring-hot) 88deg,var(--notice-ring-fade) 132deg,var(--notice-ring-fade) 360deg);transform:translate(-50%,-50%) rotate(0deg);will-change:transform;animation:notice-ring-spin 6.5s linear infinite}
+@keyframes notice-ring-spin{from{transform:translate(-50%,-50%) rotate(0deg)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes notice-aura-breathe{0%,100%{opacity:.44}50%{opacity:.76}}
+@keyframes notice-glow-breathe{0%,100%{opacity:.52;filter:blur(24px);transform:scale(.94,1)}50%{opacity:.88;filter:blur(38px);transform:scale(1.04,1.12)}}
+.notification-card{position:relative;z-index:1;width:100%;max-height:min(720px,calc(100vh - 48px));overflow:auto;padding:clamp(30px,4vw,44px) clamp(22px,5vw,48px) 28px;border:1px solid color-mix(in srgb,var(--border) 72%,white 28%);border-radius:var(--notice-card-radius);background:linear-gradient(145deg,color-mix(in srgb,var(--surface) 96%,white 4%),color-mix(in srgb,var(--surface) 90%,var(--accent-soft) 10%));box-shadow:0 26px 64px color-mix(in srgb,#172033 24%,transparent),0 8px 26px color-mix(in srgb,var(--fg) 9%,transparent);isolation:isolate}
+.notification-card::before{content:'';position:absolute;z-index:-1;inset:8px;border-radius:calc(var(--notice-card-radius) - 6px);border:1px solid color-mix(in srgb,var(--accent) 14%,transparent);pointer-events:none}
 /* 角色“趴”在卡片上边框上：0.94918 = 图片 alpha 包围盒下界 579 / 图片高 610，
    即「可视内容底边」在图片高度中的占比；用它对齐卡片上沿并轻微下压 6px，
    手部就正好压在边框线上，头部完整露出在卡片之外。
@@ -150,6 +188,16 @@ onBeforeUnmount(() => {
 .notification-close-mark{position:relative;width:19px;height:19px;display:block}.notification-close-mark::before,.notification-close-mark::after{content:"";position:absolute;left:8px;top:-1px;width:3px;height:21px;border-radius:3px;background:currentColor;transform:rotate(45deg)}.notification-close-mark::after{transform:rotate(-45deg)}
 .notification-header{position:relative;z-index:1;text-align:center}.notification-kicker{display:inline-flex;padding:5px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:10px;font-weight:700;letter-spacing:.14em}.notification-header h2{margin:12px 0 7px;font-family:var(--font-display);font-size:clamp(25px,4vw,34px);font-weight:900;letter-spacing:-.03em}
 .notification-list{position:relative;z-index:1;display:grid;gap:10px;margin:26px 0 0;padding:0;list-style:none}.notification-item{display:flex;gap:12px;padding:14px;border:1px solid color-mix(in srgb,var(--border) 78%,transparent);border-radius:17px;background:color-mix(in srgb,var(--surface) 72%,transparent)}.notification-item-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border-radius:11px;background:var(--accent-soft);color:var(--accent)}.notification-item-icon .i{width:16px;height:16px}.notification-item-body{display:grid;min-width:0;gap:3px;line-height:1.45}.notification-item-meta{display:flex;gap:9px;align-items:center;color:var(--muted);font-size:11px}.notification-item-meta strong{color:var(--accent);font-weight:700}.notification-item-meta time{margin-left:auto;white-space:nowrap}.notification-item-body b{font-size:13px;font-weight:600}.notification-item-body>span:last-child{color:var(--muted);font-size:12px}
-@media (max-width:700px){.notification-modal{padding:18px}.notification-dialog-shell{--char-width:min(270px,72vw)}.notification-card{max-height:calc(100vh - 36px);padding:32px 16px 22px;border-radius:25px}.notification-close{top:14px;right:14px;width:36px;height:36px}.notification-header h2{font-size:27px}.notification-item{padding:12px}.notification-item-body b{font-size:12.5px}.notification-item-body>span:last-child{font-size:11.5px}}
+@media (max-width:700px){.notification-modal{padding:18px}.notification-dialog-shell{--char-width:min(270px,72vw);--notice-card-radius:25px}.notification-card{max-height:calc(100vh - 36px);padding:32px 16px 22px}.notification-close{top:14px;right:14px;width:36px;height:36px}.notification-header h2{font-size:27px}.notification-item{padding:12px}.notification-item-body b{font-size:12.5px}.notification-item-body>span:last-child{font-size:11.5px}
+  /* 窄屏收敛光效：背光/环境光收窄下压，避免糊满整屏，也省掉不必要的模糊面积 */
+  .notification-card-frame::before{inset:-12px;border-radius:calc(var(--notice-card-radius) + 12px);filter:blur(18px)}
+  .notification-card-frame::after{left:-2%;right:-2%;bottom:-52px;height:160px;filter:blur(24px)}
+  @keyframes notice-glow-breathe{0%,100%{opacity:.52;filter:blur(20px);transform:scale(.94,1)}50%{opacity:.86;filter:blur(30px);transform:scale(1.03,1.1)}}
+}
+/* 无障碍：关闭全部光效动画，但保留静止的描边环与背光（仍是完整的视觉，只是不动） */
+@media (prefers-reduced-motion:reduce){
+  .notification-card-frame::before,.notification-card-frame::after,.notification-card-ring::before{animation:none}
+  .notification-card-frame::after{opacity:.6;filter:blur(28px);transform:none}
+}
 </style>
 

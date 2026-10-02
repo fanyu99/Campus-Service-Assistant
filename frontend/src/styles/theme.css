@@ -66,6 +66,30 @@
   --composer-focus-glow: oklch(58% .25 34 / .48);
   --composer-flow-hot: oklch(69% .20 48);
   --composer-flow-bright: oklch(76% .16 72);
+  /* 通知卡片光效：旋转渐变描边环 + 环境弥散光 + 底部呼吸背光。
+     浅色底下「亮端」不能用高 L 值（会糊进白底），所以取中亮高饱和暖橙；
+     深色底才把亮端推到 L 89%。所有端点都带同色相 alpha=0 版本，
+     避免渐变插值到 transparent（黑色透明）时出现灰边。 */
+  --notice-ring-fade: oklch(56% .18 34 / 0);
+  --notice-ring-tail: oklch(56% .18 34 / .32);
+  --notice-ring-hot: oklch(56% .20 32 / .96);
+  --notice-ring-bright: oklch(70% .18 52 / 1);
+  --notice-aura-a: oklch(60% .17 36 / .28);
+  --notice-aura-b: oklch(78% .13 62 / .20);
+  --notice-glow-core: oklch(58% .18 34 / .55);
+  --notice-glow-halo: oklch(70% .14 48 / .32);
+  --notice-glow-fade: oklch(74% .12 52 / 0);
+  /* 主题切换的圆形扩散（见下方同名小节）：波峰环的颜色。
+     它压在「新主题内侧 / 旧主题外侧」的交界上，色值要在两种底色上都立得住 ——
+     浅色主题取中亮高饱和暖橙（L 太高会糊进浅底），深色主题把亮端推到 L 84%。
+     必须不透明：它还得盖住 clip-path 那条硬边，带 alpha 会在接缝处漏出旧主题一线。 */
+  --theme-ripple-crest: oklch(70% .17 42);
+  /* 水滴涟漪（触点周围那几圈同心波）：内圈略亮、外圈更淡，靠 alpha 拉开层次。
+     这一层只覆盖按钮周边，多数时间落在已经铺好的新主题上，所以按新主题的底色配色。
+     压在「隐约可见」的区间：它是氛围点缀，不是主体 —— 压过高会跟页面本身的暖橙强调色
+     打架，用户看过第一版后明确要求再降一档。 */
+  --theme-ripple-drop: oklch(66% .10 42 / .22);
+  --theme-ripple-drop-soft: oklch(70% .08 46 / .10);
   /* 悬停底：L 相对页面下移 .06 */
   /* 动态色块层（沿用原首页 hero 的结构，配色改为角色发色） */
   --font-display: 'Epilogue', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
@@ -96,6 +120,22 @@ html[data-theme='dark'] {
   --composer-focus-glow: oklch(78% .20 46 / .56);
   --composer-flow-hot: oklch(80% .18 48);
   --composer-flow-bright: oklch(88% .13 78);
+  /* 通知卡片光效：深色底把亮端提到 L 89%，描边环与背光整体降一点 alpha，
+     因为深底上同样的 alpha 观感更「糊」。 */
+  --notice-ring-fade: oklch(70% .15 38 / 0);
+  --notice-ring-tail: oklch(70% .15 38 / .36);
+  --notice-ring-hot: oklch(70% .17 38 / .98);
+  --notice-ring-bright: oklch(89% .12 76 / 1);
+  --notice-aura-a: oklch(64% .16 36 / .24);
+  --notice-aura-b: oklch(56% .13 44 / .20);
+  --notice-glow-core: oklch(66% .17 38 / .60);
+  --notice-glow-halo: oklch(58% .14 40 / .34);
+  --notice-glow-fade: oklch(56% .12 42 / 0);
+  /* 主题切换的圆形扩散（见下方同名小节）：深底上把波峰推到 L 84% 才看得见 */
+  --theme-ripple-crest: oklch(84% .13 62);
+  /* 水滴涟漪：深底上把亮端推高（不然整圈糊进暗底），alpha 同样只留隐约一档 */
+  --theme-ripple-drop: oklch(85% .07 58 / .21);
+  --theme-ripple-drop-soft: oklch(78% .06 54 / .09);
   --fx-orb-1: oklch(55% .13 36 / .16);
   --fx-orb-2: oklch(42% .09 40 / .18);
   --fx-dot: oklch(50% .12 36 / .14);
@@ -513,5 +553,172 @@ ul {
   to { opacity: 1; transform: var(--bubble-rest, translateX(0)); }
 }
 @media (prefers-reduced-motion: reduce) { .character-bubble { animation: none; } }
+
+/* ── 主题切换：从触点按钮扩散铺满整屏（水波涟漪）──────────────────────────
+   几何由 composables/themeRipple.ts 算好写进三个变量：
+     --theme-ripple-x / -y  圆心（视口坐标 = 触点按钮中心）
+     --theme-ripple-radius  触点 → 页面最远角落的距离（保证圆最终盖满整页）
+   用 View Transitions 把新旧主题各拍一张全屏快照：
+     ::view-transition-new(root)  新主题 —— clip-path 的圆从触点向外张开
+     ::view-transition-old(root)  旧主题 —— 原地不动，被圆慢慢盖住
+   两层都是 fixed 快照，真实 DOM 只换颜色、不动布局，所以动画全程布局不变。
+
+   波峰（那圈亮环）绕了一道：App.vue 的 .theme-ripple-veil 是全屏元素，挂
+   view-transition-name: theme-ripple。扩散期间它在新快照里是一块纯色
+   （--theme-ripple-crest），再用 mask 把这块纯色切成贴着水波前沿的一圈环，
+   环半径 --theme-ripple-r 与扩散半径共用一条时长/缓动，于是两者永远同步。
+   两个都是实测逼出来的结论：
+     · 伪元素自己的 background/border 不会绘制（快照会整块盖住元素自身的绘制），
+       所以颜色只能来自实元素 → 实元素必须是「纯色整块」，不能自己画环；
+     · 实元素画不出「最远角落半径」上的环 —— 元素绘制会被裁在自己的盒子里，
+       半径超过视口内切圆时，环只剩远角一小段弧，缩放到前沿时就断了。
+       所以环交给 mask 现场切，半径想多大都行。
+
+   水滴涟漪（.theme-ripple-pond）：触点上那几圈同心波，只在按钮周边（≤140px）。
+   它跟大波峰相反 —— 画幅小到能整个装进元素盒子，所以可以老老实实画在实元素上，
+   再由伪元素 scale(0→1) 放大：环半径与环宽一起长，正是水波扩散的质感，
+   而且纯 transform 走合成器，不额外增加逐帧重绘。只荡一波（800ms），
+   起步比大圆（1200ms）冲，随后边扩边淡出 —— 像一滴水落下去、涟漪散开就没。
+
+   所有规则都以 html.theme-rippling 为前缀 —— 只在扩散期间生效，不干扰别的过渡。 */
+:root {
+  /* 慢一档：让「渐变铺开」这件事本身被看见，而不是一闪而过 */
+  --theme-ripple-duration: 1200ms;
+  /* 拟合一圈水面涟漪的真实规律 r ∝ √t（实测进度 25%→.49、50%→.71、75%→.86）：
+     全程都在走、越走越慢，没有前段猛冲后段拖沓的断层 */
+  --theme-ripple-ease: cubic-bezier(.2,.7,.7,.8);
+  /* 水滴涟漪：比大圆短、起步更冲，才有一滴水砸进水面的利落感；只荡一波 */
+  --theme-ripple-pond-duration: 800ms;
+  --theme-ripple-pond-ease: cubic-bezier(.18,.8,.42,.92);
+}
+/* 波峰环的半径：注册成 <length> 才能逐帧插值（未注册的自定义属性是离散的，
+   帧与帧之间只会跳变，环就没法跟着前沿走） */
+@property --theme-ripple-r {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+/* 两个实元素：平时全屏透明，只是 view-transition-name 的载体 */
+.theme-ripple-veil { position: fixed; inset: 0; pointer-events: none; view-transition-name: theme-ripple; }
+.theme-ripple-pond { position: fixed; inset: 0; pointer-events: none; view-transition-name: theme-ripple-pond; }
+/* 绘制只在「扩散回调里」挂上（见 themeRipple.ts）：新快照拍的就是这一帧。
+   绝不能提前挂 —— 那时页面还没被旧快照盖住，整屏纯色会闪一下。 */
+html.theme-rippling-paint .theme-ripple-veil { background: var(--theme-ripple-crest); }
+/* 水滴涟漪：以触点为圆心的一小簇同心波，画幅收到 130px 内，只在按钮周边。
+   由内到外三层：中心柔光 → 内圈亮波 → 中/外圈淡波，靠 alpha 拉开层次。
+   三层都是 3px 实心线 + 两侧 5~8px 过渡，是「细线」而不是宽带 ——
+   再叠上低 alpha，整簇只留隐约一圈水痕。 */
+html.theme-rippling-paint .theme-ripple-pond {
+  background: radial-gradient(circle at var(--theme-ripple-x) var(--theme-ripple-y),
+    var(--theme-ripple-drop-soft) 0 3px,
+    transparent 14px,
+    transparent 35px,
+    var(--theme-ripple-drop) 38px,
+    var(--theme-ripple-drop) 41px,
+    transparent 47px,
+    transparent 75px,
+    var(--theme-ripple-drop-soft) 78px,
+    var(--theme-ripple-drop-soft) 81px,
+    transparent 88px,
+    transparent 115px,
+    var(--theme-ripple-drop-soft) 118px,
+    var(--theme-ripple-drop-soft) 121px,
+    transparent 129px);
+}
+/* 层序：两层装饰都要压在两个 root 快照之上（默认顺序已是如此，这里写死免得被别处改动带偏），
+   水滴涟漪再压在大波峰之上 —— 它又细又亮，被波峰那圈薄雾盖住就糊了 */
+html.theme-rippling::view-transition-group(root) { z-index: 1; }
+html.theme-rippling::view-transition-group(theme-ripple) { z-index: 2; }
+html.theme-rippling::view-transition-group(theme-ripple-pond) { z-index: 3; }
+/* 关掉默认的淡入淡出，并强制 normal 混合：UA 给 ::view-transition-new 的是
+   plus-lighter，两层不透明快照相加会把整屏冲白 */
+html.theme-rippling::view-transition-old(root),
+html.theme-rippling::view-transition-new(root),
+html.theme-rippling::view-transition-old(theme-ripple),
+html.theme-rippling::view-transition-new(theme-ripple),
+html.theme-rippling::view-transition-old(theme-ripple-pond),
+html.theme-rippling::view-transition-new(theme-ripple-pond) { mix-blend-mode: normal; animation: none; }
+/* 扩散圆：半径从 0 张到「触点 → 最远角落」，到 100% 时刚好盖满整页 */
+html.theme-rippling::view-transition-new(root) {
+  animation: theme-ripple-reveal var(--theme-ripple-duration) var(--theme-ripple-ease) both;
+}
+@keyframes theme-ripple-reveal {
+  from { clip-path: circle(0px at var(--theme-ripple-x) var(--theme-ripple-y)); }
+  to { clip-path: circle(var(--theme-ripple-radius) at var(--theme-ripple-x) var(--theme-ripple-y)); }
+}
+/* 波峰环：淡出挂在 group 上、半径挂在 new 上 —— 两个属性分开，
+   各自的 keyframes 才只有 from/to 一段，缓动和扩散圆完全一致。
+   （若把 opacity 和半径塞进同一组 keyframes，中间那几档会把半径的
+   插值切成多段、每段各走一次缓动，环就和圆脱节了。） */
+html.theme-rippling::view-transition-old(theme-ripple) { opacity: 0; }
+html.theme-rippling::view-transition-group(theme-ripple) {
+  z-index: 2;
+  animation: theme-ripple-crest-fade var(--theme-ripple-duration) linear both;
+}
+html.theme-rippling::view-transition-new(theme-ripple) {
+  /* 波峰剖面：内侧一段薄雾 → 2px 实心亮带（正好盖住 clip-path 的硬边）→ 外侧拖尾光。
+     位置全部以 --theme-ripple-r 为基准，随环半径一起走；
+     薄雾/拖尾只用 alpha（颜色统一由实元素那块纯色决定）。 */
+  -webkit-mask-image: radial-gradient(circle at var(--theme-ripple-x) var(--theme-ripple-y),
+    transparent 0 calc(var(--theme-ripple-r) - 24px),
+    rgb(0 0 0 / .30) calc(var(--theme-ripple-r) - 12px),
+    #000 calc(var(--theme-ripple-r) - 2px),
+    #000 calc(var(--theme-ripple-r) + 2px),
+    rgb(0 0 0 / .24) calc(var(--theme-ripple-r) + 12px),
+    transparent calc(var(--theme-ripple-r) + 32px));
+  mask-image: radial-gradient(circle at var(--theme-ripple-x) var(--theme-ripple-y),
+    transparent 0 calc(var(--theme-ripple-r) - 24px),
+    rgb(0 0 0 / .30) calc(var(--theme-ripple-r) - 12px),
+    #000 calc(var(--theme-ripple-r) - 2px),
+    #000 calc(var(--theme-ripple-r) + 2px),
+    rgb(0 0 0 / .24) calc(var(--theme-ripple-r) + 12px),
+    transparent calc(var(--theme-ripple-r) + 32px));
+  animation: theme-ripple-crest-r var(--theme-ripple-duration) var(--theme-ripple-ease) both;
+}
+@keyframes theme-ripple-crest-r {
+  from { --theme-ripple-r: 0px; }
+  to { --theme-ripple-r: var(--theme-ripple-radius); }
+}
+@keyframes theme-ripple-crest-fade {
+  /* 收尾淡出：此时半径已越过最远角落，环基本都在视口外了 */
+  from { opacity: 1; }
+  76% { opacity: 1; }
+  to { opacity: 0; }
+}
+/* ── 水滴涟漪：整簇同心波一起 scale 放大 ──────────────────────────────────
+   环画在实元素上（画幅只有 140px，整个装得进元素盒子），所以这层能纯靠
+   transform 放大 —— 半径与环宽同步增长，正是水波扩散的质感，而且走合成器、
+   不给主线程添逐帧重绘。transform-origin 锁在触点上，缩放中心就是落水点。
+   淡出挂 group、缩放挂 new：两个属性各自只有 from/to，缓动不会互相拆台。
+   只荡一波：800ms 比大圆（1200ms）短，起步更冲，大圆还在慢慢铺时它已经散完。 */
+html.theme-rippling::view-transition-old(theme-ripple-pond) { opacity: 0; }
+html.theme-rippling::view-transition-group(theme-ripple-pond) {
+  animation: theme-ripple-pond-fade var(--theme-ripple-pond-duration) linear both;
+}
+html.theme-rippling::view-transition-new(theme-ripple-pond) {
+  transform-origin: var(--theme-ripple-x) var(--theme-ripple-y);
+  animation: theme-ripple-pond-r var(--theme-ripple-pond-duration) var(--theme-ripple-pond-ease) both;
+}
+@keyframes theme-ripple-pond-r {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+@keyframes theme-ripple-pond-fade {
+  /* 透明度：整簇波在「往外走」的前段只轻微衰减，后段随扩散快速淡尽 ——
+     波散开的同时消失，而不是「走到边上一刀切」。
+     起点 scale 为 0（整簇缩成一个点，本来就看不见），所以不需要淡入；
+     底色 alpha 已经很低，这里就不再额外衰减，免得叠成看不见。 */
+  from { opacity: 1; }
+  40% { opacity: .8; }
+  to { opacity: 0; }
+}
+/* 无障碍：不留动画，直接换主题（JS 侧也会跳过扩散，这里兜底） */
+@media (prefers-reduced-motion: reduce) {
+  html.theme-rippling::view-transition-new(root),
+  html.theme-rippling::view-transition-new(theme-ripple),
+  html.theme-rippling::view-transition-group(theme-ripple),
+  html.theme-rippling::view-transition-new(theme-ripple-pond),
+  html.theme-rippling::view-transition-group(theme-ripple-pond) { animation: none; }
+}
 
 

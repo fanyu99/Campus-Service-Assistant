@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
-import { ref, watch } from 'vue'
+import { ref, useTemplateRef, watch } from 'vue'
 import AppSelect from '../components/AppSelect.vue'
-import { useTheme, type ThemeOption } from '../composables/useTheme'
+import { setTheme, useTheme, type ThemeOption } from '../composables/useTheme'
 
 const noticeRead = ref(false)
 const saved = ref(false)
@@ -12,6 +12,16 @@ const campus = ref('主校区')
 
 const { theme } = useTheme()
 const themeOptions: readonly ThemeOption[] = ['跟随系统', '浅色', '深色']
+const themeSelect = useTemplateRef<{ triggerEl: HTMLButtonElement | null }>('themeSelect')
+
+/**
+ * 主题不能直接 v-model 到 theme 上：切换要从触点按钮张开一个圆扩散铺满整页，
+ * 所以先量出按钮中心当圆心，再交给 setTheme（见 composables/themeRipple.ts）。
+ */
+function onThemeChange(next: ThemeOption) {
+  const rect = themeSelect.value?.triggerEl?.getBoundingClientRect()
+  setTheme(next, rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined)
+}
 
 function dismissNotice() {
   noticeRead.value = true
@@ -47,7 +57,7 @@ watch([displayName, school, campus, theme], () => {
       <div class="settings-layout">
         <section class="settings-section profile-section" data-od-id="profile-settings"><div class="section-heading"><div><h2>个人资料</h2></div><span class="profile-mark" aria-hidden="true">林</span></div><div class="profile-grid"><label class="field"><span>显示名称</span><span class="composer-shell"><input v-model="displayName" type="text" autocomplete="name" /></span></label><label class="field"><span>学校</span><span class="composer-shell"><input v-model="school" type="text" autocomplete="organization" /></span></label><label class="field"><span>校区</span><span class="composer-shell"><input v-model="campus" type="text" /></span></label></div></section>
 
-        <section class="settings-section" data-od-id="appearance-settings"><div class="section-heading"><div><h2>页面外观</h2></div></div><div class="setting-row"><div><strong>主题</strong></div><AppSelect v-model="theme" :options="themeOptions" label="选择主题" class="select-shell" data-od-id="theme-select" /></div></section>
+        <section class="settings-section" data-od-id="appearance-settings"><div class="section-heading"><div><h2>页面外观</h2></div></div><div class="setting-row"><div><strong>主题</strong></div><AppSelect ref="themeSelect" :model-value="theme" :options="themeOptions" label="选择主题" class="select-shell" data-od-id="theme-select" @update:model-value="onThemeChange" /></div></section>
 
         <section class="settings-section data-section" data-od-id="data-settings"><div class="section-heading"><div><h2>数据管理</h2></div></div><div class="data-actions"><button type="button" class="secondary-button spark-button" data-od-id="save-settings-button" @click="saveProfile">保存修改</button><button type="button" class="text-button" data-od-id="clear-settings-button" @click="clearLocalData">清除本地偏好</button></div><p v-if="saved" class="save-status" aria-live="polite">已保存当前设置</p></section>
       </div>

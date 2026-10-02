@@ -116,6 +116,9 @@ watch(open, (isOpen) => {
 })
 
 onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPointerDown))
+
+/** 给父组件留个抓手：主题切换的圆形扩散要以这个触发器按钮为圆心 */
+defineExpose({ triggerEl })
 </script>
 
 <template>
