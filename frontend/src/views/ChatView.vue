@@ -32,7 +32,7 @@ if (initialQuestion) {
   messages.value.push({
     id: nextMessageId++,
     role: 'assistant',
-    text: '我已收到你的问题，正在整理与校园事务相关的办理流程。你可以继续补充院系、校区或时间等信息，我会给出更准确的建议。',
+    text: '收到你的问题。补充院系、校区或时间，回答会更准。',
     time: '刚刚',
   })
 }
@@ -86,7 +86,7 @@ function submitQuestion() {
   const text = question.value.trim()
   if (!text || isSending.value) {
     if (!text) {
-      status.value = '先输入你想咨询的校园事务'
+      status.value = '先写下你要咨询的事，再发送'
       isError.value = true
       inputEl.value?.focus()
     }
@@ -104,7 +104,7 @@ function submitQuestion() {
     messages.value.push({
       id: nextMessageId++,
       role: 'assistant',
-      text: '好的，我会围绕这个问题为你梳理办理条件、所需材料和办理入口。当前页面是原型演示，后续可接入校园服务知识库返回具体结果。',
+      text: '这个问题我会按办理条件、所需材料和办理入口来回答。当前是演示版本，还没有接入校园服务数据。',
       time: getTime(),
     })
     isSending.value = false
@@ -143,13 +143,13 @@ watch(
 
       <div class="chat-column">
         <div class="chat-heading" data-od-id="chat-heading">
-          <h1>我的对话</h1>
+          <h1>咨询校园事务</h1>
         </div>
 
         <div ref="messageList" class="message-list" role="log" aria-live="polite" data-od-id="message-list">
           <div v-if="!messages.length" class="empty-state" data-od-id="empty-conversation">
-            <p> 询问问题 </p>
-            <p>例如：校园卡丢失后应该怎么处理？</p>
+            <p>还没有对话</p>
+            <p>在下方输入框写下问题，也可以直接选一个示例</p>
           </div>
 
           <article
@@ -191,7 +191,7 @@ watch(
             <div class="composer-foot">
               <p class="composer-hint">Enter 发送 · Shift + Enter 换行</p>
               <button type="submit" class="send spark-button" :class="{ 'is-loading': isSending }" :disabled="isSending" data-od-id="chat-send-button">
-                <span v-if="isSending" class="sr-only">正在发送，校园助手准备回答中</span>
+                <span v-if="isSending" class="sr-only">正在发送</span>
                 <span v-if="isSending" class="loading-animation loading-animation--button" aria-hidden="true">
                   <span class="loading-ball" />
                   <span class="loading-ball" />
@@ -209,7 +209,7 @@ watch(
           <p class="composer-msg" :class="{ 'is-error': isError }" role="status" aria-live="polite" data-od-id="chat-status">{{ status }}</p>
           <div class="chips" data-od-id="suggestion-list">
             <AnimatedButton data-od-id="suggestion-student-card" @click="useSuggestion('学生证丢了怎么补办？')">学生证丢了怎么补办？</AnimatedButton>
-            <AnimatedButton data-od-id="suggestion-repair" @click="useSuggestion('宿舍水龙头坏了，应该在哪里报修？')">宿舍报修去哪办理？</AnimatedButton>
+            <AnimatedButton data-od-id="suggestion-repair" @click="useSuggestion('宿舍报修去哪办理？')">宿舍报修去哪办理？</AnimatedButton>
             <AnimatedButton data-od-id="suggestion-leave" @click="useSuggestion('因病请假需要准备哪些材料？')">因病请假需要哪些材料？</AnimatedButton>
           </div>
         </div>
@@ -641,7 +641,7 @@ watch(
   transition: background .18s ease, transform .18s ease;
 }
 
-.send .i { width: 15px; height: 15px; stroke-width: 2; }
+.send .i { width: 15px; height: 15px; }
 .send:hover { background: var(--accent-hover); transform: translateY(-1px); }
 .send:active { transform: translateY(0); }
 .send:disabled { cursor: wait; opacity: .68; transform: none; }

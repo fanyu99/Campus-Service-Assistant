@@ -25,8 +25,8 @@ useEyeGaze(character)
 const SERVICE_ICON: Record<string, string> = {
   'student-card': 'i-id',
   'campus-card': 'i-card',
-  repair: 'i-drop',
-  leave: 'i-clock',
+  repair: 'i-wrench',
+  leave: 'i-calendar',
 }
 const visibleRecent = computed(() => recentConversations.slice(0, 3))
 
@@ -37,9 +37,9 @@ const hoverMessages = {
     '在这里输入就好……才不是特意提醒你的。',
     '想好了就打字吧，我勉为其难听听看。',
   ],
-  services: ['这个我熟，才不是特意帮你的呢。', '校园事务我可是很在行的！'],
+  services: ['这个我熟，才不是特意帮你的呢。', '校园事务我可熟了。'],
   recent: ['还想继续问上次的问题吗？', '记得很清楚嘛，要不要接着问？'],
-  suggestions: ['这个问题不错，快问快问！', '哼，这种问题我也能回答。'],
+  suggestions: ['这个问题不错，快问吧。', '哼，这种问题我也能回答。'],
 }
 
 function pickMessage(messages: string[]) {
@@ -69,7 +69,7 @@ const greeting = computed(() => {
   const prefix = hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
   return prefix + '，' + userLabel
 })
-const waitingMessages = ['等待用户输入ing……', '我已经准备好了，快输入嘛～', '输入中？我在认真等着呢。']
+const waitingMessages = ['我在等你把问题写完。', '我已经准备好了，快输入嘛～', '输入中？我在认真等着呢。']
 const characterMessage = computed(() => {
   if (question.value.trim()) return waitingMessages[question.value.length % waitingMessages.length]
   return hoverMessage.value || greeting.value
@@ -121,7 +121,7 @@ function goChat(text?: string) {
 function submitQuestion() {
   const text = question.value.trim()
   if (!text) {
-    status.value = '先输入一个想咨询的校园事务，再点「开始咨询」'
+    status.value = '先写下你要咨询的事，再发送'
     isError.value = true
     inputEl.value?.focus()
     return
@@ -207,7 +207,7 @@ try {
           <p class="composer-msg" :class="{ 'is-error': isError }" role="status" aria-live="polite">{{ status }}</p>
           <div class="chips" data-od-id="ask-suggestions">
             <AnimatedButton @mouseenter="setHover(hoverMessages.suggestions)" @mouseleave="clearHover" @focus="setHover(hoverMessages.suggestions)" @blur="clearHover" @click="fill('学生证丢了怎么补办？')">学生证丢了怎么补办？</AnimatedButton>
-            <AnimatedButton @mouseenter="setHover(hoverMessages.suggestions)" @mouseleave="clearHover" @focus="setHover(hoverMessages.suggestions)" @blur="clearHover" @click="fill('宿舍水龙头坏了，应该在哪里报修？')">宿舍水龙头坏了去哪报修？</AnimatedButton>
+            <AnimatedButton @mouseenter="setHover(hoverMessages.suggestions)" @mouseleave="clearHover" @focus="setHover(hoverMessages.suggestions)" @blur="clearHover" @click="fill('宿舍水龙头坏了去哪报修？')">宿舍水龙头坏了去哪报修？</AnimatedButton>
             <AnimatedButton @mouseenter="setHover(hoverMessages.suggestions)" @mouseleave="clearHover" @focus="setHover(hoverMessages.suggestions)" @blur="clearHover" @click="fill('因病请假需要哪些材料？')">因病请假需要哪些材料？</AnimatedButton>
           </div>
         </div>
@@ -215,7 +215,7 @@ try {
 
       <aside class="panel">
         <section data-od-id="quick-services">
-          <div class="panel-head"><h2>常用服务</h2><button type="button" class="link-btn" data-od-id="view-all-services" @click="router.push({ name: 'services' })">查看全部</button></div>
+          <div class="panel-head"><h2>常用事项</h2><button type="button" class="link-btn" data-od-id="view-all-services" @click="router.push({ name: 'services' })">全部事项</button></div>
           <ul class="list">
             <li v-for="item in serviceItems" :key="item.id">
               <button type="button" class="row" :data-od-id="`service-card-${item.id}`" @mouseenter="setHover(hoverMessages.services)" @mouseleave="clearHover" @focus="setHover(hoverMessages.services)" @blur="clearHover" @click="goChat(item.prompt)">
@@ -229,7 +229,7 @@ try {
         </section>
 
         <section data-od-id="recent-conversations">
-          <div class="panel-head"><h2>最近咨询</h2><button type="button" class="link-btn" data-od-id="view-all-history" @click="router.push({ name: 'history' })">全部记录</button></div>
+          <div class="panel-head"><h2>最近记录</h2><button type="button" class="link-btn" data-od-id="view-all-history" @click="router.push({ name: 'history' })">全部记录</button></div>
           <ul class="list">
             <li v-for="item in visibleRecent" :key="item.id">
               <button type="button" class="recent-row" :data-od-id="item.id" @mouseenter="setHover(hoverMessages.recent)" @mouseleave="clearHover" @focus="setHover(hoverMessages.recent)" @blur="clearHover" @click="goChat(item.question)">
@@ -240,7 +240,7 @@ try {
             </li>
           </ul>
         </section>
-        <p class="mobile-note">本地演示 · 不收集敏感信息</p>
+        <p class="mobile-note">演示数据 · 输入内容只保存在本机</p>
       </aside>
     </div>
   </main>
@@ -248,7 +248,7 @@ try {
 </template>
 
 <style scoped>
-/* ?? ???????????? opacity / transform??????????? ?? */
+/* 入场：三个区块依次上浮淡入，只动 opacity / transform，不触发重排 */
 .home-reveal .topbar,
 .home-reveal .stage,
 .home-reveal .panel{animation:home-fade-up 460ms cubic-bezier(.2,0,0,1) both}
@@ -328,7 +328,7 @@ try {
 .composer-hint{margin:0;color:var(--muted);font-size:12px;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .send{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;height:38px;padding:0 16px;border-radius:13px;
   background:var(--accent);color:var(--page-bg);font-size:13px;font-weight:500;white-space:nowrap;transition:background .18s ease,transform .18s ease}
-.send .i{width:15px;height:15px;stroke-width:2}
+.send .i{width:15px;height:15px}
 .send:hover{background:var(--accent-hover);transform:translateY(-1px)}
 .send:active{transform:translateY(0)}
 .composer-msg{margin:0;min-height:19px;font-size:12px;line-height:1.6;color:var(--fg);text-align:center}

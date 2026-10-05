@@ -9,12 +9,13 @@ useTheme()
 
 const isNoticeOpen = ref(false)
 const noticeCloseButton = ref<HTMLButtonElement | null>(null)
+/** 通知按类型配图标：同一列表里三条类型不同，全用铃铛就没有区分度了 */
 const notifications = [
-  { id: 'service-update', type: '服务更新', title: '学生证补办服务说明已更新', detail: '现在可以在服务中心直接查看材料清单。', time: '刚刚',
+  { id: 'service-update', type: '服务更新', icon: 'i-doc', title: '学生证补办服务说明已更新', detail: '补办材料清单已在支持事项里更新。', time: '刚刚',
     bubble: '学生证说明更新啦，快看。' },
-  { id: 'repair-maintenance', type: '系统提醒', title: '宿舍报修平台今晚进行维护', detail: '维护时间为 22:00–23:00，期间提交可能稍有延迟。', time: '今天 18:30',
+  { id: 'repair-maintenance', type: '系统提醒', icon: 'i-wrench', title: '宿舍报修平台今晚进行维护', detail: '维护时间为 22:00–23:00，期间提交可能稍有延迟。', time: '今天 18:30',
     bubble: '报修平台今晚要维护，别怪我。' },
-  { id: 'campus-event', type: '校园公告', title: '本周校园服务开放日开始报名', detail: '欢迎前往活动中心预约线下咨询。', time: '昨天',
+  { id: 'campus-event', type: '校园公告', icon: 'i-megaphone', title: '本周校园服务开放日开始报名', detail: '可以在活动中心预约线下咨询。', time: '昨天',
     bubble: '开放日能线下咨询，随你啦。' },
 ]
 
@@ -120,7 +121,7 @@ onBeforeUnmount(() => {
             <span class="notification-close-mark" aria-hidden="true"></span>
           </button>
           <div class="notification-header">
-            <span class="notification-kicker">CAMPUS UPDATE</span>
+            <span class="notification-kicker">校园通知</span>
             <h2 id="notification-title">通知中心</h2>
           </div>
           <ul class="notification-list">
@@ -131,7 +132,7 @@ onBeforeUnmount(() => {
               @mouseenter="noticeHover = item.bubble"
               @mouseleave="noticeHover = null"
             >
-              <span class="notification-item-icon"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></span>
+              <span class="notification-item-icon"><svg class="i" aria-hidden="true"><use :href="`#${item.icon}`"/></svg></span>
               <span class="notification-item-body"><span class="notification-item-meta"><strong>{{ item.type }}</strong><time>{{ item.time }}</time></span><b>{{ item.title }}</b><span>{{ item.detail }}</span></span>
             </li>
           </ul>

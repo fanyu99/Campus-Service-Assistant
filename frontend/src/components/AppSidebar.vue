@@ -15,7 +15,7 @@ const { setHoverMessage, clearHoverMessage } = useCharacterBubble()
 const primaryNav: NavItem[] = [
   { name: 'home', to: '/', icon: 'i-home', label: '首页' },
   { name: 'chat', to: '/chat', icon: 'i-chat', label: '我的对话' },
-  { name: 'services', to: '/services', icon: 'i-grid', label: '支持事项' },
+  { name: 'services', to: '/services', icon: 'i-list', label: '支持事项' },
   { name: 'history', to: '/history', icon: 'i-clock', label: '最近记录' },
 ]
 
@@ -31,7 +31,7 @@ function isActive(name: string) {
 const navMessages: Record<string, string> = {
   home: '回首页找我吗？我就知道你会想我。',
   chat: '你要问我问题吗？',
-  services: '对于校园事务，我很在行的！',
+  services: '校园事务，问我就对了。',
   history: '想看看我们之前聊过什么吗？',
   help: '遇到不会的就看这里，别害羞嘛。',
   settings: '要调整一下设置？我陪你。',
@@ -39,14 +39,6 @@ const navMessages: Record<string, string> = {
 
 function showNavMessage(name: string) {
   setHoverMessage(navMessages[name] ?? '有什么问题尽管问我。')
-}
-
-function dismissNotice(id: string) {
-  const el = document.querySelector<HTMLElement>(`[data-od-id="${id}"]`)
-  const dot = el?.querySelector('.dot-badge')
-  if (dot) dot.remove()
-  el?.setAttribute('aria-label', '通知（无未读）')
-  el?.setAttribute('data-tip', '通知（无未读）')
 }
 </script>
 
@@ -75,7 +67,7 @@ function dismissNotice(id: string) {
       </router-link>
     </nav>
     <div class="sidebar-spacer"></div>
-    <div class="side-status" data-od-id="kb-status"><span class="status-dot" aria-hidden="true"></span><span>知识库已更新</span></div>
+    <div class="side-status" data-od-id="kb-status"><span class="status-dot" aria-hidden="true"></span><span>办事指南已更新</span></div>
 
     <nav class="secondary-nav" aria-label="辅助导航">
       <router-link

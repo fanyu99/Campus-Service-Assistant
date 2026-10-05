@@ -3,7 +3,7 @@
 export const serviceItems: ServiceItem[] = [
   { id: 'student-card', title: '学生证补办', description: '材料、流程与办理地点', category: '证件', icon: '▣', tone: 'orange', prompt: '学生证丢了怎么补办？' },
   { id: 'campus-card', title: '校园卡补办', description: '挂失、补办与余额处理', category: '校园卡', icon: '⌁', tone: 'blue', prompt: '校园卡丢失后应该怎么处理？' },
-  { id: 'repair', title: '宿舍报修', description: '提交前先确认问题类型', category: '生活', icon: '⌂', tone: 'green', prompt: '宿舍水龙头坏了，应该在哪里报修？' },
+  { id: 'repair', title: '宿舍报修', description: '提交前先确认问题类型', category: '生活', icon: '⌂', tone: 'green', prompt: '宿舍水龙头坏了去哪报修？' },
   { id: 'leave', title: '请假办理', description: '了解条件与所需证明', category: '学业', icon: '◷', tone: 'purple', prompt: '因病请假需要准备哪些材料？' },
 ]
 
