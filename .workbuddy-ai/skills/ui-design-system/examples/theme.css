@@ -1,0 +1,628 @@
+/* ============================================================================
+ * 校园办事小秘书 · 全局设计变量与共享样式
+ * ----------------------------------------------------------------------------
+ * 这是唯一的设计变量来源。组件样式写在各自的 <style scoped> 里，只负责布局，
+ * 不重复写这里已经提供的 border / background / border-radius / focus 样式。
+ *
+ * 目录：
+ *   1. 字体
+ *   2. 色板 token（浅色）
+ *   3. 色板 token（深色）
+ *   4. 推荐 token：间距 / 圆角 / 阴影（新代码用，旧字面值逐步迁移）
+ *   5. 基础重置与全局焦点环
+ *   6. 应用外壳与顶栏
+ *   7. 路由过渡
+ *   8. 统一输入框外壳 .composer-shell
+ *   9. 光扫按钮 .spark-button
+ *  10. 角色消息气泡 .character-bubble
+ *  11. 主题切换：圆形扩散
+ *  12. 响应式
+ * ========================================================================== */
+
+/* ── 1. 字体：自托管真实字体文件（Epilogue Black 标题 / DM Sans 正文）───── */
+@font-face {
+  font-family: 'DM Sans';
+  src: url('/assets/fonts/DMSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Epilogue';
+  src: url('/assets/fonts/Epilogue-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── 2. 色板 token（浅色）─────────────────────────────────────────────── */
+:root {
+  /* 告诉浏览器用浅色渲染「原生控件与浏览器自带 UI」：select 下拉弹层、滚动条、
+     日期选择器、拼写下划线等。它们由浏览器绘制，不受 --surface 等变量影响，
+     只能靠 color-scheme 切换。深色主题在 html[data-theme='dark'] 里覆盖成 dark。 */
+  color-scheme: light;
+
+  /* 调色板取自角色图真实像素；强调色 = 头发色相 */
+  --page-bg: #fdfdfd;                        /* = 角色图顶边 4px 带实测均值 */
+  --surface: oklch(98% .008 55);             /* #fdf7f3 输入框表面 */
+  --fg: oklch(19% .018 40);                  /* #1b110e 对页面 18.2:1 */
+  --muted: oklch(50% .035 38);               /* #765d55 对页面 5.96:1 / 对表面 5.70:1 */
+  --border: oklch(90% .018 45);              /* #e9dbd4 */
+  --accent: oklch(53% .16 36);               /* #b53f1d 对页面 5.59:1，其上白字 5.69:1 */
+  --accent-hover: oklch(45% .16 34);         /* #9a2202 白字对比度升至 8.07:1 */
+  --accent-soft: oklch(95% .035 40);         /* #ffe7dd 与强调色 4.80:1 */
+  --danger: oklch(47% .17 27);               /* #a51f1e 对页面 7.34:1 */
+  --row-hover: oklch(94% .016 45);           /* 悬停底：L 相对页面下移 .06 */
+
+  --fx-orb-1: oklch(74% .154 36 / .20);
+  --fx-orb-2: oklch(84% .10 40 / .21);
+  --fx-dot: oklch(70% .14 36 / .17);
+  --fx-particle: oklch(52% .17 27);
+  --fx-particle-bright: oklch(62% .18 28);
+  --fx-particle-trail: oklch(100% 0 0);
+  --fx-particle-glow: 213, 70, 56;
+  --fx-petal: oklch(61% .16 28 / .9);
+  --fx-petal-highlight: oklch(82% .13 30 / .92);
+  --fx-ripple: oklch(56% .19 28);
+  --fx-water: 27, 49, 65;
+  --fx-water-highlight: oklch(68% .14 28 / .48);
+  /* 樱花排斥力场仅保留物理交互，不绘制轮廓或光晕。 */
+  --fx-field-outline-alpha: 0;
+  --fx-field-glow-strength: 0;
+
+  /* 浮层（tooltip / 下拉弹层）*/
+  --tooltip-bg: oklch(99% .007 55 / .98);
+  --tooltip-text: var(--fg);
+  --tooltip-muted: var(--muted);
+  --tooltip-border: oklch(83% .055 36 / .8);
+  --tooltip-shadow: 0 16px 34px oklch(24% .025 38 / .16), inset 0 1px 0 oklch(100% 0 0 / .76);
+
+  /* 输入框外壳 .composer-shell 的专用分层色 */
+  --composer-grid-line: oklch(47% .08 36 / .10);
+  --composer-grid-fade: oklch(98% .008 55 / .78);
+  --composer-hover-glow: oklch(60% .23 32 / .34);
+  --composer-focus-glow: oklch(58% .25 34 / .48);
+  --composer-flow-hot: oklch(69% .20 48);
+  --composer-flow-bright: oklch(76% .16 72);
+
+  /* 通知卡片光效：旋转渐变描边环 + 环境弥散光 + 底部呼吸背光。
+     浅色底下「亮端」不能用高 L 值（会糊进白底），所以取中亮高饱和暖橙；
+     深色底才把亮端推到 L 89%。所有端点都带同色相 alpha=0 版本，
+     避免渐变插值到 transparent（黑色透明）时出现灰边。 */
+  --notice-ring-fade: oklch(56% .18 34 / 0);
+  --notice-ring-tail: oklch(56% .18 34 / .32);
+  --notice-ring-hot: oklch(56% .20 32 / .96);
+  --notice-ring-bright: oklch(70% .18 52 / 1);
+  --notice-aura-a: oklch(60% .17 36 / .28);
+  --notice-aura-b: oklch(78% .13 62 / .20);
+  --notice-glow-core: oklch(58% .18 34 / .55);
+  --notice-glow-halo: oklch(70% .14 48 / .32);
+  --notice-glow-fade: oklch(74% .12 52 / 0);
+
+  /* 主题切换的圆形扩散：波峰环压在「新主题内侧 / 旧主题外侧」的交界上，
+     色值要在两种底色上都立得住。必须不透明：它还得盖住 clip-path 那条硬边。
+     水滴涟漪压在「隐约可见」的区间（用户要求降过两轮，不要往回调）。 */
+  --theme-ripple-crest: oklch(70% .17 42);
+  --theme-ripple-drop: oklch(66% .10 42 / .22);
+  --theme-ripple-drop-soft: oklch(70% .08 46 / .10);
+
+  --font-display: 'Epilogue', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --font-body: 'DM Sans', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+}
+
+/* ── 3. 色板 token（深色）─────────────────────────────────────────────── */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --page-bg: oklch(17% .012 40);
+  --surface: oklch(22% .016 42);
+  --fg: oklch(93% .012 55);
+  --muted: oklch(70% .03 45);
+  --border: oklch(32% .02 45);
+  --accent: oklch(62% .15 38);
+  --accent-hover: oklch(68% .15 38);
+  --accent-soft: oklch(30% .05 40);
+  --danger: oklch(65% .16 27);
+  --row-hover: oklch(27% .02 45);
+  --tooltip-bg: oklch(24% .018 42 / .98);
+  --tooltip-text: oklch(96% .008 55);
+  --tooltip-muted: oklch(76% .025 48);
+  --tooltip-border: oklch(68% .11 38 / .68);
+  --tooltip-shadow: 0 18px 38px oklch(5% .01 40 / .46), inset 0 1px 0 oklch(100% 0 0 / .08);
+  --composer-grid-line: oklch(78% .08 38 / .13);
+  --composer-grid-fade: oklch(22% .016 42 / .80);
+  --composer-hover-glow: oklch(75% .22 40 / .40);
+  --composer-focus-glow: oklch(78% .20 46 / .56);
+  --composer-flow-hot: oklch(80% .18 48);
+  --composer-flow-bright: oklch(88% .13 78);
+  /* 通知卡片光效：深色底把亮端提到 L 89%，描边环与背光整体降一点 alpha，
+     因为深底上同样的 alpha 观感更「糊」。 */
+  --notice-ring-fade: oklch(70% .15 38 / 0);
+  --notice-ring-tail: oklch(70% .15 38 / .36);
+  --notice-ring-hot: oklch(70% .17 38 / .98);
+  --notice-ring-bright: oklch(89% .12 76 / 1);
+  --notice-aura-a: oklch(64% .16 36 / .24);
+  --notice-aura-b: oklch(56% .13 44 / .20);
+  --notice-glow-core: oklch(66% .17 38 / .60);
+  --notice-glow-halo: oklch(58% .14 40 / .34);
+  --notice-glow-fade: oklch(56% .12 42 / 0);
+  /* 主题切换：深底上把波峰推到 L 84% 才看得见 */
+  --theme-ripple-crest: oklch(84% .13 62);
+  --theme-ripple-drop: oklch(85% .07 58 / .21);
+  --theme-ripple-drop-soft: oklch(78% .06 54 / .09);
+  --fx-orb-1: oklch(55% .13 36 / .16);
+  --fx-orb-2: oklch(42% .09 40 / .18);
+  --fx-dot: oklch(50% .12 36 / .14);
+  --fx-particle: oklch(70% .16 28);
+  --fx-particle-bright: oklch(78% .17 28);
+  --fx-particle-trail: oklch(100% 0 0);
+  --fx-particle-glow: 246, 105, 82;
+  --fx-petal: oklch(77% .13 28 / .82);
+  --fx-petal-highlight: oklch(93% .07 34 / .9);
+  --fx-ripple: oklch(80% .14 28 / .8);
+  --fx-water: 38, 55, 69;
+  --fx-water-highlight: oklch(79% .11 30 / .38);
+  --fx-field-outline-alpha: 0;
+  --fx-field-glow-strength: 0;
+}
+
+/* ── 4. 推荐 token：间距 / 圆角 / 阴影 ──────────────────────────────────
+   这三组是从既有字面值归纳出来的，新代码优先用 token，旧代码逐步迁移。 */
+:root {
+  /* 间距：4px 栅格，允许 2px 半步 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-14: 56px;
+  --gap-tight: 6px;                                  /* 图标与文字 */
+  --gap-inline: 10px;                                /* 行内元素默认 */
+  --gap-block: 14px;                                 /* 区块之间 */
+  --pad-card: clamp(30px, 4vw, 44px) clamp(22px, 5vw, 48px) 28px;
+  --pad-row: 6px 10px;
+  --pad-shell: 0 clamp(20px, 2.8vw, 40px);
+
+  /* 圆角：按容器层级递增 */
+  --radius-icon: 9px;                                /* 头像、图标块 */
+  --radius-control: 11px;                            /* 图标按钮、次要按钮 */
+  --radius-chip: 999px;                              /* pill、kicker、spark 按钮 */
+  --radius-row: 12px;                                /* 列表行 */
+  --radius-btn: 13px;                                /* 实心按钮 */
+  --radius-panel: 18px;                              /* 面板、卡片、气泡 */
+  --radius-composer: 24px;                           /* 输入框外壳 */
+  --radius-card: 32px;                               /* 大卡片（通知卡，窄屏 25px）*/
+
+  /* 阴影：只有「离地」与「发光」两种，不要写第三种 */
+  --shadow-rest: 0 7px 18px color-mix(in srgb, var(--fg) 4%, transparent);
+  --shadow-raise: 0 14px 30px color-mix(in srgb, var(--fg) 9%, transparent);
+  --shadow-card: 0 26px 64px color-mix(in srgb, #172033 24%, transparent),
+                 0 8px 26px color-mix(in srgb, var(--fg) 9%, transparent);
+  --shadow-bubble: 0 10px 24px color-mix(in srgb, var(--fg) 8%, transparent);
+  --shadow-accent-btn: 0 8px 18px color-mix(in srgb, var(--accent) 24%, transparent);
+  --shadow-accent-btn-hover: 0 11px 28px color-mix(in srgb, var(--accent) 35%, transparent),
+                             0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+/* ── 5. 基础重置与全局焦点环 ─────────────────────────────────────────── */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--page-bg);
+  color: var(--fg);
+  font: 400 15px/1.5 var(--font-body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  /* 双击粒子爆发与文本选区冲突：默认禁选，仅内容区与输入框恢复 */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea { user-select: text; -webkit-user-select: text; }
+
+button { white-space: nowrap; font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+ul { list-style: none; margin: 0; padding: 0; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:where(button, [href], input, textarea, [tabindex]):focus-visible {
+  outline: 2.5px solid var(--fg);
+  outline-offset: 2px;
+}
+
+/* ── 6. 应用外壳与顶栏 ───────────────────────────────────────────────── */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.i {
+  width: 1em;
+  height: 1em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
+
+.app-shell { position: relative; display: flex; height: 100vh; min-height: 100vh; overflow: hidden; }
+
+.main {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  padding: var(--pad-shell);
+}
+
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); height: 58px; flex: 0 0 auto; }
+
+.crumb { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--muted); }
+.crumb strong { color: var(--fg); font-weight: 500; }
+
+.top-actions { display: flex; align-items: center; gap: var(--gap-inline); }
+
+.icon-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-control);
+  color: var(--muted);
+  transition: background .16s ease, color .16s ease;
+}
+.icon-btn .i { width: 17px; height: 17px; }
+.icon-btn:hover { background: var(--row-hover); color: var(--fg); }
+
+/* 悬浮信息：沿用暖红强调色，文字随主题自动切换 */
+.icon-btn[data-tip]::before,
+.icon-btn[data-tip]::after {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.2, .8, .2, 1);
+  z-index: 20;
+}
+.icon-btn[data-tip]::before {
+  content: '';
+  top: calc(100% + 4px);
+  right: 12px;
+  width: 9px;
+  height: 9px;
+  border-top: 1px solid var(--tooltip-border);
+  border-left: 1px solid var(--tooltip-border);
+  background: var(--tooltip-bg);
+  transform: translateY(5px) rotate(45deg);
+}
+.icon-btn[data-tip]::after {
+  content: attr(data-tip);
+  top: calc(100% + 8px);
+  right: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--tooltip-border);
+  border-radius: 10px 14px;
+  background: var(--tooltip-bg);
+  box-shadow: var(--tooltip-shadow);
+  color: var(--tooltip-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  transform: translateY(5px) scale(.96);
+}
+.icon-btn[data-tip]:hover::before,
+.icon-btn[data-tip]:focus-visible::before { opacity: 1; transform: translateY(0) rotate(45deg); }
+.icon-btn[data-tip]:hover::after,
+.icon-btn[data-tip]:focus-visible::after { opacity: 1; transform: translateY(0) scale(1); }
+@media (hover: none) {
+  .icon-btn[data-tip]::before,
+  .icon-btn[data-tip]::after { display: none; }
+}
+
+.dot-badge { position: absolute; top: 7px; right: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: var(--radius-icon);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+@media (max-height: 620px) and (min-width: 701px) { .main { overflow-y: auto; } }
+
+/* ── 7. 路由过渡 ─────────────────────────────────────────────────────── */
+.route-enter-active,
+.route-leave-active { will-change: opacity, transform; transition: opacity 180ms cubic-bezier(.2, 0, 0, 1), transform 180ms cubic-bezier(.2, 0, 0, 1); }
+.route-enter-from { opacity: 0; transform: translateY(8px); }
+.route-leave-to { opacity: 0; transform: translateY(-4px); }
+@media (prefers-reduced-motion: reduce) {
+  .route-enter-active,
+  .route-leave-active { transition: none; }
+  .route-enter-from,
+  .route-leave-to { opacity: 1; transform: none; }
+}
+
+/* ── 8. 统一动态输入框外壳 ─────────────────────────────────────────────
+      渐变描边 + 动态网格 + 边框流光 + 主题色光晕。
+      页面 scoped 只写布局（display/flex/gap/padding/min-height），
+      不要重复写 border / background / border-radius / focus 样式。 */
+.composer-shell {
+  --composer-shell-radius: 24px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: var(--composer-shell-radius);
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(110deg, var(--border), color-mix(in srgb, var(--accent) 42%, var(--border)), var(--border)) border-box;
+  box-shadow: 0 7px 18px color-mix(in srgb, var(--fg) 4%, transparent);
+  transition: box-shadow .24s ease, background .3s ease, transform .24s ease;
+}
+.composer-shell::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  opacity: .74;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--composer-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--composer-grid-line) 1px, transparent 1px),
+    linear-gradient(135deg, transparent 0 53%, var(--composer-grid-fade) 78%);
+  background-size: 16px 16px, 16px 16px, 100% 100%;
+  background-position: center;
+  transition: opacity .24s ease, filter .3s ease;
+}
+.composer-shell::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 15%, var(--composer-flow-hot) 40%, var(--composer-flow-bright) 50%, var(--accent) 60%, transparent 85%);
+  background-size: 220% 100%;
+  background-position: 100% 50%;
+  filter: drop-shadow(0 0 6px var(--composer-hover-glow));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  transition: opacity .2s ease, filter .2s ease;
+}
+.composer-shell > *:not(.sr-only) { position: relative; z-index: 1; }
+.composer-shell:hover {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(118deg, var(--accent-hover), var(--accent), var(--accent-hover)) border-box;
+  box-shadow: 0 0 0 2px var(--composer-hover-glow), 0 0 22px var(--composer-hover-glow), 0 14px 30px color-mix(in srgb, var(--composer-hover-glow) 60%, transparent);
+}
+.composer-shell:hover::before { opacity: 1; filter: saturate(1.25) contrast(1.08); animation: composer-shell-grid-drift 2.6s linear infinite; }
+.composer-shell:hover::after { opacity: .9; animation: composer-shell-border-flow 2s linear infinite; }
+.composer-shell:focus-within {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(125deg, var(--composer-flow-hot), var(--composer-flow-bright), var(--accent)) border-box;
+  box-shadow: 0 0 0 3px var(--composer-focus-glow), 0 0 30px var(--composer-focus-glow), 0 16px 38px color-mix(in srgb, var(--composer-focus-glow) 64%, transparent);
+}
+.composer-shell:focus-within::before { opacity: 1; filter: saturate(1.4) contrast(1.12); animation: composer-shell-grid-drift 1.35s linear infinite; }
+.composer-shell:focus-within::after { opacity: 1; filter: drop-shadow(0 0 10px var(--composer-focus-glow)); animation: composer-shell-border-flow 1.05s linear infinite; }
+.composer-shell.is-invalid {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(125deg, var(--danger), color-mix(in srgb, var(--danger) 42%, var(--border)), var(--danger)) border-box;
+}
+@keyframes composer-shell-grid-drift { from { background-position: 0 0, 0 0, center; } to { background-position: 32px 32px, 32px 32px, center; } }
+@keyframes composer-shell-border-flow { from { background-position: 100% 50%; } to { background-position: -120% 50%; } }
+
+/* ── 9. 光扫强调按钮（可加在 <button> / <RouterLink> 上）───────────────── */
+.spark-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid transparent !important;
+  border-radius: 999px !important;
+  background: linear-gradient(var(--accent), var(--accent)) padding-box, linear-gradient(120deg, var(--accent-hover), var(--composer-flow-bright), var(--accent)) border-box !important;
+  color: var(--page-bg) !important;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 24%, transparent);
+  transition: transform .22s ease, box-shadow .22s ease, filter .22s ease;
+}
+.spark-button::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(circle at 22% 0%, color-mix(in srgb, #fff 36%, transparent), transparent 42%), linear-gradient(110deg, transparent 15%, color-mix(in srgb, #fff 26%, transparent) 50%, transparent 85%);
+  opacity: 0;
+  transform: translateX(-65%);
+  transition: opacity .22s ease, transform .55s ease;
+}
+.spark-button:hover,
+.spark-button:focus-visible {
+  transform: translateY(-2px);
+  filter: saturate(1.12);
+  box-shadow: 0 11px 28px color-mix(in srgb, var(--accent) 35%, transparent), 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.spark-button:hover::before,
+.spark-button:focus-visible::before { opacity: 1; transform: translateX(65%); }
+.spark-button:active { transform: translateY(0) scale(.98); }
+@media (prefers-reduced-motion: reduce) {
+  .composer-shell, .composer-shell::before, .composer-shell::after,
+  .spark-button, .spark-button::before { transition: none; animation: none; }
+}
+
+/* ── 10. 角色消息气泡（首页与通知弹窗共用视觉，位置由使用方声明）────────
+      --bubble-rest     静止时的 transform
+      --bubble-arrow-x  小箭头在气泡内的水平位置，默认 50%            */
+.character-bubble {
+  position: absolute;
+  z-index: 3;
+  width: max-content;
+  max-width: min(300px, 76vw);
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--fg) 8%, transparent);
+  transform: var(--bubble-rest, translateX(0));
+  animation: bubble-pop .24s ease both;
+}
+.character-bubble::after {
+  content: "";
+  position: absolute;
+  left: var(--bubble-arrow-x, 50%);
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transform: translateX(-50%) rotate(45deg);
+}
+@keyframes bubble-pop {
+  from { opacity: 0; transform: var(--bubble-rest, translateX(0)) translateY(4px) scale(.98); }
+  to { opacity: 1; transform: var(--bubble-rest, translateX(0)); }
+}
+@media (prefers-reduced-motion: reduce) { .character-bubble { animation: none; } }
+
+/* ── 11. 主题切换：从触点按钮扩散铺满整屏（水波涟漪）─────────────────────
+     几何由 composables/themeRipple.ts 算好写进三个变量：
+       --theme-ripple-x / -y  圆心（视口坐标 = 触点按钮中心）
+       --theme-ripple-radius  触点 → 页面最远角落的距离
+     用 View Transitions 把新旧主题各拍一张全屏快照：
+       ::view-transition-new(root)  新主题 —— clip-path 的圆从触点向外张开
+       ::view-transition-old(root)  旧主题 —— 原地不动，被圆慢慢盖住
+     波峰环的颜色只能由实元素提供（伪元素自身的绘制会被快照整块盖掉），
+     环本身靠 mask 现场切、半径靠注册过的 @property 逐帧插值。
+     所有规则都以 html.theme-rippling 为前缀 —— 只在扩散期间生效。 */
+:root {
+  /* 慢一档：让「渐变铺开」这件事本身被看见，而不是一闪而过 */
+  --theme-ripple-duration: 1200ms;
+  /* 拟合一圈水面涟漪的真实规律 r ∝ √t：全程都在走、越走越慢 */
+  --theme-ripple-ease: cubic-bezier(.2, .7, .7, .8);
+  /* 水滴涟漪：比大圆短、起步更冲，只荡一波 */
+  --theme-ripple-pond-duration: 800ms;
+  --theme-ripple-pond-ease: cubic-bezier(.18, .8, .42, .92);
+}
+@property --theme-ripple-r { syntax: '<length>'; inherits: true; initial-value: 0px; }
+
+.theme-ripple-veil { position: fixed; inset: 0; pointer-events: none; view-transition-name: theme-ripple; }
+.theme-ripple-pond { position: fixed; inset: 0; pointer-events: none; view-transition-name: theme-ripple-pond; }
+
+/* 绘制只在「扩散回调里」挂上：挂早了页面还没被旧快照盖住，整屏纯色会闪一下 */
+html.theme-rippling-paint .theme-ripple-veil { background: var(--theme-ripple-crest); }
+html.theme-rippling-paint .theme-ripple-pond {
+  background: radial-gradient(circle at var(--theme-ripple-x) var(--theme-ripple-y),
+    var(--theme-ripple-drop-soft) 0 3px,
+    transparent 14px, transparent 35px,
+    var(--theme-ripple-drop) 38px, var(--theme-ripple-drop) 41px,
+    transparent 47px, transparent 75px,
+    var(--theme-ripple-drop-soft) 78px, var(--theme-ripple-drop-soft) 81px,
+    transparent 88px, transparent 115px,
+    var(--theme-ripple-drop-soft) 118px, var(--theme-ripple-drop-soft) 121px,
+    transparent 129px);
+}
+html.theme-rippling::view-transition-group(root) { z-index: 1; }
+html.theme-rippling::view-transition-group(theme-ripple) { z-index: 2; }
+html.theme-rippling::view-transition-group(theme-ripple-pond) { z-index: 3; }
+/* 关掉默认的淡入淡出，并强制 normal 混合（UA 默认是 plus-lighter，会冲白整屏） */
+html.theme-rippling::view-transition-old(root),
+html.theme-rippling::view-transition-new(root),
+html.theme-rippling::view-transition-old(theme-ripple),
+html.theme-rippling::view-transition-new(theme-ripple),
+html.theme-rippling::view-transition-old(theme-ripple-pond),
+html.theme-rippling::view-transition-new(theme-ripple-pond) { mix-blend-mode: normal; animation: none; }
+html.theme-rippling::view-transition-new(root) {
+  animation: theme-ripple-reveal var(--theme-ripple-duration) var(--theme-ripple-ease) both;
+}
+@keyframes theme-ripple-reveal {
+  from { clip-path: circle(0px at var(--theme-ripple-x) var(--theme-ripple-y)); }
+  to { clip-path: circle(var(--theme-ripple-radius) at var(--theme-ripple-x) var(--theme-ripple-y)); }
+}
+html.theme-rippling::view-transition-old(theme-ripple) { opacity: 0; }
+html.theme-rippling::view-transition-group(theme-ripple) {
+  z-index: 2;
+  animation: theme-ripple-crest-fade var(--theme-ripple-duration) linear both;
+}
+html.theme-rippling::view-transition-new(theme-ripple) {
+  -webkit-mask-image: radial-gradient(circle at var(--theme-ripple-x) var(--theme-ripple-y),
+    transparent 0 calc(var(--theme-ripple-r) - 24px),
+    rgb(0 0 0 / .30) calc(var(--theme-ripple-r) - 12px),
+    #000 calc(var(--theme-ripple-r) - 2px),
+    #000 calc(var(--theme-ripple-r) + 2px),
+    rgb(0 0 0 / .24) calc(var(--theme-ripple-r) + 12px),
+    transparent calc(var(--theme-ripple-r) + 32px));
+  mask-image: radial-gradient(circle at var(--theme-ripple-x) var(--theme-ripple-y),
+    transparent 0 calc(var(--theme-ripple-r) - 24px),
+    rgb(0 0 0 / .30) calc(var(--theme-ripple-r) - 12px),
+    #000 calc(var(--theme-ripple-r) - 2px),
+    #000 calc(var(--theme-ripple-r) + 2px),
+    rgb(0 0 0 / .24) calc(var(--theme-ripple-r) + 12px),
+    transparent calc(var(--theme-ripple-r) + 32px));
+  animation: theme-ripple-crest-r var(--theme-ripple-duration) var(--theme-ripple-ease) both;
+}
+@keyframes theme-ripple-crest-r {
+  from { --theme-ripple-r: 0px; }
+  to { --theme-ripple-r: var(--theme-ripple-radius); }
+}
+@keyframes theme-ripple-crest-fade { from { opacity: 1; } 76% { opacity: 1; } to { opacity: 0; } }
+html.theme-rippling::view-transition-old(theme-ripple-pond) { opacity: 0; }
+html.theme-rippling::view-transition-group(theme-ripple-pond) {
+  animation: theme-ripple-pond-fade var(--theme-ripple-pond-duration) linear both;
+}
+html.theme-rippling::view-transition-new(theme-ripple-pond) {
+  transform-origin: var(--theme-ripple-x) var(--theme-ripple-y);
+  animation: theme-ripple-pond-r var(--theme-ripple-pond-duration) var(--theme-ripple-pond-ease) both;
+}
+@keyframes theme-ripple-pond-r { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes theme-ripple-pond-fade { from { opacity: 1; } 40% { opacity: .8; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  html.theme-rippling::view-transition-new(root),
+  html.theme-rippling::view-transition-new(theme-ripple),
+  html.theme-rippling::view-transition-group(theme-ripple),
+  html.theme-rippling::view-transition-new(theme-ripple-pond),
+  html.theme-rippling::view-transition-group(theme-ripple-pond) { animation: none; }
+}
+
+/* ── 12. 响应式：回到文档滚动 ─────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .app-shell { display: flex; flex-direction: column; height: auto; min-height: 100svh; overflow: visible; }
+  .main { flex: none; width: 100%; height: auto; overflow: visible; padding: 6px 24px 0; }
+  .topbar { display: none; }
+}

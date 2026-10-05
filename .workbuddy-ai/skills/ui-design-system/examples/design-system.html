@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>校园办事小秘书 · 设计体系一览</title>
+<!-- 与项目完全同一份 token 文件 -->
+<link rel="stylesheet" href="./theme.css">
+<style>
+  /* ── 仅演示页用的布局样式，不属于设计体系 ───────────────────────────── */
+  body { user-select: text; -webkit-user-select: text; padding: 0; }
+  .demo { max-width: 1080px; margin: 0 auto; padding: 32px 24px 96px; }
+  .demo-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 24px 0 8px; }
+  .demo-head h1 { margin: 0; font-family: var(--font-display); font-size: clamp(28px, 4vw, 44px); font-weight: 900; letter-spacing: -.025em; line-height: 1.25; }
+  .demo-head p { margin: 8px 0 0; max-width: 52ch; color: var(--muted); font-size: 13px; line-height: 1.7; }
+  .demo-section { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--border); }
+  .demo-section > h2 { margin: 0 0 4px; font-size: 16px; font-weight: 650; }
+  .demo-section > p { margin: 0 0 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .row-flex { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .stack { display: grid; gap: 14px; max-width: 660px; }
+  .swatch { padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  .swatch span { display: block; height: 42px; border-radius: 8px; margin-bottom: 8px; border: 1px solid color-mix(in srgb, var(--fg) 8%, transparent); }
+  .swatch code { display: block; font-size: 11px; color: var(--muted); word-break: break-all; }
+  .swatch b { display: block; font-size: 12px; font-weight: 600; }
+  .tag { display: inline-block; padding: 3px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 600; }
+
+  /* 组件演示需要但体系里没提供的少量补白 */
+  .send { display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto; height: 38px; padding: 0 16px; border-radius: 13px; background: var(--accent); color: var(--page-bg); font-size: 13px; font-weight: 500; white-space: nowrap; transition: background .18s ease, transform .18s ease; }
+  .send:hover { background: var(--accent-hover); transform: translateY(-1px); }
+  .composer { display: flex; flex-direction: column; gap: 9px; padding: 14px 14px 11px; }
+  .composer textarea { width: 100%; min-height: 25px; max-height: 104px; padding: 0 4px; border: 0; background: transparent; color: var(--fg); font: 400 15px/1.6 var(--font-body); resize: none; outline: 0; }
+  .composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-left: 4px; }
+  .composer-hint { margin: 0; color: var(--muted); font-size: 12px; }
+  .search-field { display: flex; align-items: center; gap: 9px; min-height: 46px; padding: 0 12px; }
+  .search-field input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: var(--fg); font: 400 13px/1.5 var(--font-body); }
+  .clear-search { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
+  .clear-search:hover { color: var(--fg); }
+  .list { display: grid; gap: 2px; }
+  .row-item { display: flex; align-items: center; gap: 11px; min-height: 46px; padding: 6px 10px; border-radius: 12px; color: var(--fg); transition: background .16s ease; }
+  .row-item:hover { background: var(--row-hover); }
+  .row-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px; background: var(--surface); }
+  .row-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-cat { color: var(--muted); font-size: 12px; }
+  .category-filter { display: flex; flex-wrap: wrap; gap: 7px; }
+  .category-tab { min-height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted); font-size: 12px; white-space: nowrap; transition: background .16s ease, color .16s ease, border-color .16s ease; }
+  .category-tab:hover { border-color: var(--fg); color: var(--fg); }
+  .category-tab.is-active { border-color: var(--fg); background: var(--fg); color: var(--page-bg); }
+  .icon-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .icon-cell { display: grid; place-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  .icon-cell .i { width: 22px; height: 22px; }
+  .icon-cell code { font-size: 10.5px; color: var(--muted); }
+
+  /* 通知卡演示：照抄 components/dialog.md 的 frame 三层 */
+  .notification-card-frame { position: relative; z-index: 1; width: 100%; max-width: 620px; isolation: isolate; }
+  .notification-card { --notice-card-radius: 32px; position: relative; z-index: 1; padding: 34px 30px 26px; border: 1px solid color-mix(in srgb, var(--border) 72%, white 28%); border-radius: var(--notice-card-radius); background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 96%, white 4%), color-mix(in srgb, var(--surface) 90%, var(--accent-soft) 10%)); box-shadow: var(--shadow-card); isolation: isolate; }
+  .notification-kicker { display: inline-flex; padding: 5px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
+  .notification-card h2 { margin: 12px 0 7px; font-family: var(--font-display); font-size: clamp(25px, 4vw, 34px); font-weight: 900; letter-spacing: -.03em; }
+  .notification-list { display: grid; gap: 10px; margin: 22px 0 0; padding: 0; list-style: none; }
+  .notification-item { display: flex; gap: 12px; padding: 14px; border: 1px solid color-mix(in srgb, var(--border) 78%, transparent); border-radius: 17px; background: color-mix(in srgb, var(--surface) 72%, transparent); }
+  .notification-item-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 11px; background: var(--accent-soft); color: var(--accent); }
+  .notification-item-body { display: grid; min-width: 0; gap: 3px; line-height: 1.45; }
+  .notification-item-meta { display: flex; gap: 9px; align-items: center; color: var(--muted); font-size: 11px; }
+  .notification-item-meta strong { color: var(--accent); font-weight: 700; }
+  .notification-item-meta time { margin-left: auto; }
+  .notification-item-body b { font-size: 13px; font-weight: 600; }
+  .notification-item-body > span:last-child { color: var(--muted); font-size: 12px; }
+
+  /* 动效按钮（与 AnimatedButton.vue 完全一致） */
+  .animated-button { position: relative; display: inline-flex; align-items: center; flex: 0 0 auto; gap: 4px; padding: 7px 20px; border: 3px solid transparent; border-radius: 100px; background-color: transparent; color: var(--accent); font-family: var(--font-body); font-size: 13px; font-weight: 600; line-height: 1.35; white-space: nowrap; text-decoration: none; box-shadow: 0 0 0 2px var(--accent); cursor: pointer; overflow: hidden; transition: all .6s cubic-bezier(.23, 1, .32, 1); }
+  .animated-button .arr { position: absolute; width: 13px; fill: var(--accent); z-index: 9; transition: all .8s cubic-bezier(.23, 1, .32, 1); }
+  .animated-button .arr-1 { right: 8px; }
+  .animated-button .arr-2 { left: -25%; }
+  .animated-button .circle { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; background-color: var(--accent); border-radius: 50%; opacity: 0; transition: all .8s cubic-bezier(.23, 1, .32, 1); }
+  .animated-button .text { position: relative; z-index: 1; transform: translateX(-9px); transition: all .8s cubic-bezier(.23, 1, .32, 1); }
+  .animated-button:hover, .animated-button:focus-visible { box-shadow: 0 0 0 12px transparent; color: var(--page-bg); border-radius: 12px; }
+  .animated-button:hover .arr-1, .animated-button:focus-visible .arr-1 { right: -25%; }
+  .animated-button:hover .arr-2, .animated-button:focus-visible .arr-2 { left: 8px; }
+  .animated-button:hover .text, .animated-button:focus-visible .text { transform: translateX(9px); }
+  .animated-button:hover .arr, .animated-button:focus-visible .arr { fill: var(--page-bg); }
+  .animated-button:active { scale: .95; box-shadow: 0 0 0 4px var(--accent); }
+  .animated-button:hover .circle, .animated-button:focus-visible .circle { width: 200px; height: 200px; opacity: 1; }
+
+  /* 加载指示器（与 components/feedback.md 完全一致） */
+  .loading-animation { --loader-ball-size: 12px; --loader-track-width: 62px; --loader-height: 31px; --loader-rest-top: 0px; --loader-floor-top: 25px; --loader-shadow-width: 13px; --loader-shadow-top: 27px; position: relative; z-index: 1; width: var(--loader-track-width); height: var(--loader-height); }
+  .loading-ball, .loading-shadow { position: absolute; display: block; transform-origin: 50%; }
+  .loading-ball { top: var(--loader-floor-top); left: 4px; width: var(--loader-ball-size); height: var(--loader-ball-size); border-radius: 50%; background: var(--accent); box-shadow: 0 3px 8px color-mix(in srgb, var(--accent) 26%, transparent); animation: loader-ball .5s alternate infinite ease; }
+  .loading-ball:nth-child(2) { left: 25px; animation-delay: .2s; }
+  .loading-ball:nth-child(3) { left: 46px; animation-delay: .3s; }
+  .loading-shadow { top: var(--loader-shadow-top); left: 3px; z-index: -1; width: var(--loader-shadow-width); height: 4px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 44%, transparent); filter: blur(1px); animation: loader-shadow .5s alternate infinite ease; }
+  .loading-shadow:nth-child(5) { left: 24px; animation-delay: .2s; }
+  .loading-shadow:nth-child(6) { left: 45px; animation-delay: .3s; }
+  @keyframes loader-ball { 0% { top: var(--loader-floor-top); height: 5px; border-radius: 50px 50px 25px 25px; transform: scaleX(1.7); } 40% { height: var(--loader-ball-size); border-radius: 50%; transform: scaleX(1); } 100% { top: var(--loader-rest-top); } }
+  @keyframes loader-shadow { 0% { transform: scaleX(1.5); } 40% { transform: scaleX(1); opacity: .7; } 100% { transform: scaleX(.2); opacity: .4; } }
+  .loading-animation--button { --loader-ball-size: 6px; --loader-track-width: 30px; --loader-height: 17px; --loader-floor-top: 11px; --loader-shadow-top: 14px; --loader-shadow-width: 7px; }
+  .loading-animation--button .loading-ball { left: 1px; }
+  .loading-animation--button .loading-ball:nth-child(2) { left: 12px; }
+  .loading-animation--button .loading-ball:nth-child(3) { left: 23px; }
+  .loading-animation--button .loading-shadow { left: 0; height: 2px; }
+  .loading-animation--button .loading-shadow:nth-child(5) { left: 11px; }
+  .loading-animation--button .loading-shadow:nth-child(6) { left: 22px; }
+
+  /* 通知卡三层光效（与 motion/notice-glow.md 完全一致） */
+  .notification-card-frame::before { content: ''; position: absolute; z-index: 0; inset: -18px; border-radius: calc(var(--notice-card-radius) + 18px); background: conic-gradient(from 208deg, transparent 0deg, var(--notice-aura-a) 58deg, transparent 148deg, var(--notice-aura-b) 232deg, transparent 322deg); filter: blur(26px); opacity: .6; pointer-events: none; animation: notice-aura-breathe 7.6s ease-in-out infinite; }
+  .notification-card-frame::after { content: ''; position: absolute; z-index: 0; left: -4%; right: -4%; bottom: -70px; height: 200px; border-radius: 50%; background: radial-gradient(62% 100% at 50% 66%, var(--notice-glow-core) 0%, var(--notice-glow-halo) 42%, var(--notice-glow-fade) 76%); filter: blur(30px); opacity: .72; pointer-events: none; transform-origin: 50% 100%; animation: notice-glow-breathe 6.4s ease-in-out infinite; will-change: opacity, transform, filter; }
+  .notification-card-ring { position: absolute; z-index: 2; inset: -2px; padding: 2px; border-radius: calc(var(--notice-card-radius) + 2px); overflow: hidden; pointer-events: none; -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+  .notification-card-ring::before { content: ''; position: absolute; left: 50%; top: 50%; width: 300%; aspect-ratio: 1; background: conic-gradient(from 0deg, var(--notice-ring-fade) 0deg, var(--notice-ring-tail) 30deg, var(--notice-ring-fade) 118deg, var(--notice-ring-fade) 360deg), conic-gradient(from 0deg, var(--notice-ring-fade) 0deg, var(--notice-ring-hot) 50deg, var(--notice-ring-bright) 68deg, var(--notice-ring-hot) 88deg, var(--notice-ring-fade) 132deg, var(--notice-ring-fade) 360deg); transform: translate(-50%, -50%) rotate(0deg); will-change: transform; animation: notice-ring-spin 6.5s linear infinite; }
+  @keyframes notice-ring-spin { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+  @keyframes notice-aura-breathe { 0%, 100% { opacity: .44; } 50% { opacity: .76; } }
+  @keyframes notice-glow-breathe { 0%, 100% { opacity: .52; filter: blur(24px); transform: scale(.94, 1); } 50% { opacity: .88; filter: blur(38px); transform: scale(1.04, 1.12); } }
+
+  .card-demo-wrap { padding: 70px 40px 110px; display: grid; place-items: center; }
+  .bubble-demo { position: relative; display: inline-block; padding: 18px 22px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); }
+  .bubble-demo .character-bubble { --bubble-rest: translateX(-50%); left: 50%; bottom: calc(100% + 6px); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animated-button, .animated-button .arr, .animated-button .text, .animated-button .circle { transition: none; }
+    .loading-ball, .loading-shadow { animation: none; }
+    .loading-ball { top: var(--loader-rest-top); height: var(--loader-ball-size); transform: none; }
+    .loading-shadow { transform: scaleX(.7); opacity: .5; }
+    .notification-card-frame::before, .notification-card-frame::after, .notification-card-ring::before { animation: none; }
+    .notification-card-frame::after { opacity: .6; filter: blur(28px); transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 图标 sprite（与 AppSprite.vue 完全一致） -->
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.8 10.6L12 3.9l8.2 6.7V19a1.4 1.4 0 0 1-1.4 1.4h-4v-6.1H9.2v6.1H5.2A1.4 1.4 0 0 1 3.8 19z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M20.2 14.6a2 2 0 0 1-2 2H8.3L4.4 20.2V5.8a2 2 0 0 1 2-2h11.8a2 2 0 0 1 2 2z"/><path d="M8.6 9.8h6.8M8.6 13h4.2"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8.8 5.6h11.4M8.8 12h11.4M8.8 18.4h11.4"/><path d="M4.4 5.6h.01M4.4 12h.01M4.4 18.4h.01"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.6V12l3.2 1.9"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.3c-.7.3-1 .8-1 1.5v.3"/><path d="M12 16.6h.01"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M3.9 6.4h8.6M17.7 6.4h2.5M3.9 17.6h2M10.9 17.6h9.3"/><circle cx="15.2" cy="6.4" r="2.5"/><circle cx="8.4" cy="17.6" r="2.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18.5 16.4V11.2a6.5 6.5 0 1 0-13 0v5.2L3.9 19h16.2z"/><path d="M9.9 21.2a2.4 2.4 0 0 0 4.2 0"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M4.2 11.1L19.8 6.6v10.8L4.2 13.9z"/><path d="M11.4 16a2.7 2.7 0 1 1-5.2-1.4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M13.6 4.2H7.6a2.6 2.6 0 0 0-2.6 2.6v10.4a2.6 2.6 0 0 0 2.6 2.6h8.8a2.6 2.6 0 0 0 2.6-2.6V9.6z"/><path d="M13.6 4.2v5.4h5.4"/><path d="M9.4 13.6h5.2M9.4 16.4h5.2"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-id" viewBox="0 0 24 24"><rect x="3.8" y="4.8" width="16.4" height="14.4" rx="2.5"/><circle cx="8.8" cy="11.4" r="2.1"/><path d="M6.2 16.6a3 3 0 0 1 5.2 0M13.6 10.4h4.4M13.6 13.6h4.4"/></symbol>
+  <symbol id="i-card" viewBox="0 0 24 24"><rect x="3.8" y="4.8" width="16.4" height="14.4" rx="2.5"/><path d="M3.8 9.6h16.4M6.8 14.4h3.2"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.8" y="5.4" width="16.4" height="14.4" rx="2.5"/><path d="M3.8 10.4h16.4M8.4 3.9v3.2M15.6 3.9v3.2"/></symbol>
+  <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="9.4" r="6.4"/><path d="M8.8 14.8L7.2 20.4l4.8-2.3 4.8 2.3-1.6-5.6"/></symbol>
+  <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M4.2 8.7a11.6 11.6 0 0 1 15.6 0"/><path d="M7.2 11.9a7.4 7.4 0 0 1 9.6 0"/><path d="M10.2 15.1a3.2 3.2 0 0 1 3.6 0"/><path d="M12 18.3h.01"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.4" cy="10.4" r="6.4"/><path d="M15.1 15.1l4.8 4.8"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 5.5l6.5 6.5-6.5 6.5"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19.5V5"/><path d="M5.8 11.2L12 5l6.2 6.2"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.8l4.6 4.6L19 7.6"/></symbol>
+</svg>
+
+<!-- 主题扩散的两个载体（与 App.vue 一致） -->
+<div class="theme-ripple-veil" aria-hidden="true"></div>
+<div class="theme-ripple-pond" aria-hidden="true"></div>
+
+<main class="demo">
+  <header class="demo-head">
+    <div>
+      <h1>设计体系一览</h1>
+      <p>与 <code>src/styles/theme.css</code> 同一份 token。点右上角切主题，会从按钮中心张开一圈水波扩散。</p>
+    </div>
+    <button id="themeBtn" type="button" class="spark-button" style="min-height:42px;padding:0 18px;font-size:13px;font-weight:550;">切换主题</button>
+  </header>
+
+  <!-- 色板 -->
+  <section class="demo-section">
+    <h2>色板</h2>
+    <p>全部走 <code>--*</code> 变量；切换主题时下面的色块会整体换一套。</p>
+    <div class="grid" id="swatches"></div>
+  </section>
+
+  <!-- 字体 -->
+  <section class="demo-section">
+    <h2>字体层级</h2>
+    <p>标题 Epilogue 900（紧字距），正文 DM Sans 400。中英混排走系统回退。</p>
+    <div class="stack">
+      <div style="font-family:var(--font-display);font-size:clamp(32px,4.4vw,54px);font-weight:900;line-height:1.28;letter-spacing:-.025em;">页面主标题 H1</div>
+      <div style="font-family:var(--font-display);font-size:20px;font-weight:800;line-height:1.35;">卡片内标题</div>
+      <div style="font-size:16px;font-weight:650;">分区标题 16 / 650</div>
+      <div style="font-size:14px;font-weight:550;">列表项标题 14 / 550</div>
+      <div style="font-size:15px;line-height:1.5;">正文 15px / 1.5 —— 校园办事小秘书，Enter 发送，Shift + Enter 换行。</div>
+      <div style="font-size:12px;color:var(--muted);">元信息 12px · muted</div>
+      <div><span class="tag">KICKER 10 / 700</span></div>
+    </div>
+  </section>
+
+  <!-- 圆角与阴影 -->
+  <section class="demo-section">
+    <h2>圆角与阴影</h2>
+    <p>圆角按容器层级递增：9（图标）→ 11（控件）→ 13（按钮）→ 12（列表行）→ 18（面板）→ 24（输入框）→ 32（大卡片）。阴影只有「离地」与「发光」两种。</p>
+    <div class="row-flex">
+      <div style="width:56px;height:56px;border-radius:var(--radius-icon);background:var(--surface);box-shadow:var(--shadow-rest);"></div>
+      <div style="width:76px;height:44px;border-radius:var(--radius-control);background:var(--surface);box-shadow:var(--shadow-rest);"></div>
+      <div style="width:96px;height:38px;border-radius:var(--radius-btn);background:var(--accent);box-shadow:var(--shadow-accent-btn);"></div>
+      <div style="width:160px;height:48px;border-radius:var(--radius-row);background:var(--surface);box-shadow:var(--shadow-rest);"></div>
+      <div style="width:200px;height:88px;border-radius:var(--radius-panel);background:var(--surface);box-shadow:var(--shadow-raise);"></div>
+      <div style="width:220px;height:56px;border-radius:var(--radius-composer);background:var(--surface);box-shadow:var(--shadow-rest);border:1px solid var(--border);"></div>
+    </div>
+  </section>
+
+  <!-- 按钮 -->
+  <section class="demo-section">
+    <h2>按钮</h2>
+    <p>一个视图最多一个实心/光扫主按钮；其余降级为描边或文本。</p>
+    <div class="row-flex">
+      <button type="button" class="spark-button" style="min-height:38px;padding:0 16px;font-size:13px;font-weight:500;">开始咨询<svg class="i" style="width:15px;height:15px;margin-left:7px;" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
+      <button type="button" class="send">发送</button>
+      <button type="button" class="animated-button">
+        <svg class="arr arr-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"/></svg>
+        <span class="text">进入我的对话</span>
+        <span class="circle" aria-hidden="true"></span>
+        <svg class="arr arr-1" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"/></svg>
+      </button>
+      <button type="button" style="min-height:42px;padding:0 16px;border:1px solid var(--fg);border-radius:11px;background:var(--fg);color:var(--page-bg);font-size:13px;font-weight:550;">保存修改</button>
+      <button type="button" style="min-height:42px;padding:0 3px;color:var(--muted);font-size:12px;">清除本机保存的设置</button>
+      <button type="button" class="icon-btn" aria-label="通知" data-tip="通知（无未读）"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
+    </div>
+  </section>
+
+  <!-- 输入框 -->
+  <section class="demo-section">
+    <h2>输入框 · .composer-shell</h2>
+    <p>静止不动，hover 启动网格漂移与边框流光，focus 再提速（2.6s → 1.35s）。试着点进去。</p>
+    <div class="stack">
+      <form class="composer composer-shell" onsubmit="return false">
+        <label class="sr-only" for="askInput">输入你想咨询的校园事务</label>
+        <textarea id="askInput" rows="1" maxlength="200" placeholder="试试问：学生证丢了怎么补办？"></textarea>
+        <div class="composer-foot">
+          <p class="composer-hint">Enter 发送 · Shift + Enter 换行</p>
+          <button type="submit" class="send spark-button"><span>开始咨询</span><svg class="i" style="width:15px;height:15px;" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
+        </div>
+      </form>
+
+      <label class="search-field composer-shell">
+        <svg class="i" style="width:16px;height:16px;color:var(--muted);" aria-hidden="true"><use href="#i-search"/></svg>
+        <span class="sr-only">搜索支持事项</span>
+        <input type="search" placeholder="搜索事项名称或关键词" autocomplete="off">
+        <button type="button" class="clear-search" aria-label="清空">清空</button>
+      </label>
+
+      <form class="composer composer-shell is-invalid" onsubmit="return false">
+        <label class="sr-only" for="badInput">校验失败态</label>
+        <textarea id="badInput" rows="1" placeholder="is-invalid：描边转到 --danger"></textarea>
+      </form>
+      <p style="margin:0;font-size:12px;color:var(--danger);text-align:center;">先写下你要咨询的事，再发送</p>
+    </div>
+  </section>
+
+  <!-- 列表行 -->
+  <section class="demo-section">
+    <h2>列表行</h2>
+    <p>hover 只变底色（长列表用 55% 半透明），尾随箭头从 muted 提到 fg。不加阴影、不加位移。</p>
+    <div class="list" style="max-width:520px;">
+      <div class="row-item"><span class="row-icon"><svg class="i" style="width:15px;height:15px;" aria-hidden="true"><use href="#i-id"/></svg></span><span class="row-title">学生证补办</span><span class="row-cat">证件</span><svg class="i" style="width:14px;height:14px;color:var(--muted);" aria-hidden="true"><use href="#i-chev"/></svg></div>
+      <div class="row-item"><span class="row-icon"><svg class="i" style="width:15px;height:15px;" aria-hidden="true"><use href="#i-card"/></svg></span><span class="row-title">校园卡补办</span><span class="row-cat">校园卡</span><svg class="i" style="width:14px;height:14px;color:var(--muted);" aria-hidden="true"><use href="#i-chev"/></svg></div>
+      <div class="row-item"><span class="row-icon"><svg class="i" style="width:15px;height:15px;" aria-hidden="true"><use href="#i-wrench"/></svg></span><span class="row-title">宿舍报修</span><span class="row-cat">生活</span><svg class="i" style="width:14px;height:14px;color:var(--muted);" aria-hidden="true"><use href="#i-chev"/></svg></div>
+    </div>
+  </section>
+
+  <!-- 分类 tab -->
+  <section class="demo-section">
+    <h2>分类筛选 tab</h2>
+    <p>切换组语义（aria-pressed），选中用「反白」而不是强调色——比「当前页面」更轻。</p>
+    <div class="category-filter" id="tabs"></div>
+  </section>
+
+  <!-- 通知卡光效 -->
+  <section class="demo-section">
+    <h2>通知卡片三层光效</h2>
+    <p>光效挂在外层 frame 上（卡片是滚动容器，挂进去会被裁）：环境弥散光 7.6s + 底部呼吸背光 6.4s + 旋转描边环 6.5s。</p>
+    <div class="card-demo-wrap">
+      <div class="notification-card-frame">
+        <span class="notification-card-ring" aria-hidden="true"></span>
+        <section class="notification-card" role="dialog" aria-modal="false" aria-labelledby="notification-title">
+          <span class="notification-kicker">校园通知</span>
+          <h2 id="notification-title">通知中心</h2>
+          <ul class="notification-list">
+            <li class="notification-item">
+              <span class="notification-item-icon"><svg class="i" style="width:16px;height:16px;" aria-hidden="true"><use href="#i-doc"/></svg></span>
+              <span class="notification-item-body"><span class="notification-item-meta"><strong>服务更新</strong><time>刚刚</time></span><b>学生证补办服务说明已更新</b><span>补办材料清单已在支持事项里更新。</span></span>
+            </li>
+            <li class="notification-item">
+              <span class="notification-item-icon"><svg class="i" style="width:16px;height:16px;" aria-hidden="true"><use href="#i-wrench"/></svg></span>
+              <span class="notification-item-body"><span class="notification-item-meta"><strong>系统提醒</strong><time>今天 18:30</time></span><b>宿舍报修平台今晚进行维护</b><span>维护时间为 22:00–23:00，期间提交可能稍有延迟。</span></span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- 角色气泡 -->
+  <section class="demo-section">
+    <h2>角色消息气泡</h2>
+    <p>视觉统一在 <code>.character-bubble</code>，位置由 <code>--bubble-rest</code> 与 <code>--bubble-arrow-x</code> 声明。文案 ≤ 15 字。</p>
+    <div style="padding:70px 0 20px;display:inline-block;">
+      <div class="bubble-demo">
+        <div class="character-bubble" role="status" aria-live="polite">哼，才不是特意来提醒你的。</div>
+        角色占位
+      </div>
+    </div>
+  </section>
+
+  <!-- 加载 -->
+  <section class="demo-section">
+    <h2>加载指示器</h2>
+    <p>一套 keyframes + 一组 <code>--loader-*</code> 变量，产出大号（气泡内）与小号（按钮内）。</p>
+    <div class="row-flex">
+      <div class="loading-animation" role="status" aria-label="校园助手正在生成回答">
+        <span class="loading-ball"></span><span class="loading-ball"></span><span class="loading-ball"></span>
+        <span class="loading-shadow"></span><span class="loading-shadow"></span><span class="loading-shadow"></span>
+      </div>
+      <button type="button" class="send spark-button is-loading" style="gap:0;min-width:58px;padding-inline:13px;" disabled>
+        <span class="sr-only">正在发送</span>
+        <span class="loading-animation loading-animation--button" aria-hidden="true">
+          <span class="loading-ball"></span><span class="loading-ball"></span><span class="loading-ball"></span>
+          <span class="loading-shadow"></span><span class="loading-shadow"></span><span class="loading-shadow"></span>
+        </span>
+      </button>
+    </div>
+  </section>
+
+  <!-- 空态 -->
+  <section class="demo-section">
+    <h2>空态</h2>
+    <p>不是「什么都没有」，而是给下一步动作。</p>
+    <div class="empty-state" style="padding:32px 0;border-bottom:1px solid var(--border);max-width:520px;">
+      <h2 style="margin:0;font-size:16px;font-weight:550;">没有匹配的事项</h2>
+      <p style="margin:8px 0 16px;color:var(--muted);font-size:13px;line-height:1.7;">换个更短的关键词，或把分类切回“全部”。</p>
+      <button type="button" class="spark-button" style="min-height:38px;padding:0 14px;color:var(--fg);font-size:13px;font-weight:550;">重置筛选</button>
+    </div>
+  </section>
+
+  <!-- 图标 -->
+  <section class="demo-section">
+    <h2>图标（19 个）</h2>
+    <p>24×24 画布，主体收进 3.8–20.2 安全框，stroke-width 统一 1.7，矩形圆角统一 2.5。</p>
+    <div class="icon-grid" id="icons"></div>
+  </section>
+</main>
+
+<script>
+/* ── 色板渲染 ─────────────────────────────────────────────────────────── */
+const SWATCHES = [
+  ['--page-bg', '页面底'], ['--surface', '表面'], ['--fg', '前景'],
+  ['--muted', '弱化'], ['--border', '边框'], ['--row-hover', '行悬停'],
+  ['--accent', '强调'], ['--accent-hover', '强调·按下'], ['--accent-soft', '强调·浅底'],
+  ['--danger', '危险'], ['--tooltip-bg', '浮层底'], ['--tooltip-border', '浮层边'],
+]
+const swatchHost = document.getElementById('swatches')
+SWATCHES.forEach(([name, label]) => {
+  const el = document.createElement('div')
+  el.className = 'swatch'
+  el.innerHTML = '<span style="background:' + 'var(' + name + ')' + '"></span><b>' + label + '</b><code>' + name + '</code>'
+  swatchHost.appendChild(el)
+})
+
+/* ── 分类 tab（切换组语义）────────────────────────────────────────────── */
+const CATS = ['全部', '证件与校园卡', '宿舍与后勤', '请假与学业']
+const tabHost = document.getElementById('tabs')
+CATS.forEach((c, i) => {
+  const b = document.createElement('button')
+  b.type = 'button'
+  b.className = 'category-tab' + (i === 0 ? ' is-active' : '')
+  b.textContent = c
+  b.setAttribute('aria-pressed', String(i === 0))
+  b.addEventListener('click', () => {
+    tabHost.querySelectorAll('.category-tab').forEach((t) => {
+      t.classList.remove('is-active')
+      t.setAttribute('aria-pressed', 'false')
+    })
+    b.classList.add('is-active')
+    b.setAttribute('aria-pressed', 'true')
+  })
+  tabHost.appendChild(b)
+})
+
+/* ── 图标全览 ─────────────────────────────────────────────────────────── */
+const ICONS = ['i-home','i-chat','i-list','i-clock','i-help','i-sliders','i-bell','i-megaphone','i-doc','i-wrench','i-id','i-card','i-calendar','i-award','i-wifi','i-search','i-chev','i-arrow-up','i-check']
+const iconHost = document.getElementById('icons')
+ICONS.forEach((id) => {
+  const el = document.createElement('div')
+  el.className = 'icon-cell'
+  el.innerHTML = '<svg class="i" aria-hidden="true"><use href="#' + id + '"/></svg><code>' + id + '</code>'
+  iconHost.appendChild(el)
+})
+
+/* ── 主题切换（带圆形扩散，逻辑与 composables/themeRipple.ts 一致）────── */
+const themeBtn = document.getElementById('themeBtn')
+
+function paint(theme) {
+  const root = document.documentElement
+  if (root.dataset.theme !== theme) root.dataset.theme = theme
+}
+
+themeBtn.addEventListener('click', () => {
+  const root = document.documentElement
+  const next = root.dataset.theme === 'dark' ? 'light' : 'dark'
+  const start = root.startViewTransition
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  // 不支持 View Transitions 或用户要求减弱动效 → 直接切
+  if (typeof start !== 'function' || reduce) { paint(next); return }
+
+  const rect = themeBtn.getBoundingClientRect()
+  const ox = rect.left + rect.width / 2
+  const oy = rect.top + rect.height / 2
+  // 半径 = 触点 → 最远角落（两个方向各取 max 再 hypot，+8 安全余量）
+  const radius = Math.hypot(
+    Math.max(ox, window.innerWidth - ox),
+    Math.max(oy, window.innerHeight - oy),
+  ) + 8
+
+  root.style.setProperty('--theme-ripple-x', ox + 'px')
+  root.style.setProperty('--theme-ripple-y', oy + 'px')
+  root.style.setProperty('--theme-ripple-radius', radius + 'px')
+  root.classList.add('theme-rippling')
+
+  const transition = start.call(document, () => {
+    // 颜色只能由实元素提供，必须在「新快照拍下之前」挂上
+    root.classList.add('theme-rippling-paint')
+    paint(next)
+  })
+
+  transition.finished.finally(() => {
+    root.classList.remove('theme-rippling', 'theme-rippling-paint')
+    root.style.removeProperty('--theme-ripple-x')
+    root.style.removeProperty('--theme-ripple-y')
+    root.style.removeProperty('--theme-ripple-radius')
+  })
+})
+</script>
+</body>
+</html>
