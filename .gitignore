@@ -81,7 +81,12 @@ docker-compose.override.yml
 *.tfvars
 
 # AI 助手 / 本地智能体数据（记忆、索引、会话）
-.workbuddy-ai/
+# 注：.workbuddy-ai/ 下只有 memory/ 属于个人数据；skills/ 是人为维护的设计资产
+#     （设计体系文档与示例代码），单独放行入库，其余仍不入库。
+#     用 `.workbuddy-ai/*` 而不是 `.workbuddy-ai/`：后者会把目录本身排除，
+#     git 不再向下遍历，后面的 ! 例外规则就失效了。
+.workbuddy-ai/*
+!.workbuddy-ai/skills/
 .codeartsdoer/
 .claude/
 .cursor/
