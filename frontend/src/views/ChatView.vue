@@ -3,6 +3,7 @@
 import { nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AnimatedButton from '../components/AnimatedButton.vue'
+import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 
 type Message = {
   id: number
@@ -131,6 +132,7 @@ watch(
         <strong>我的对话</strong>
       </nav>
       <div class="top-actions">
+        <ThemeToggleButton />
         <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="chat-notification-button">
           <svg class="i" aria-hidden="true"><use href="#i-bell" /></svg>
           <span class="dot-badge" />

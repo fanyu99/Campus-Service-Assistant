@@ -2,6 +2,7 @@
 
 import { computed, ref } from 'vue'
 import { serviceItems } from '../data/home.mock'
+import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 
 const query = ref('')
 const activeCategory = ref('全部')
@@ -41,7 +42,7 @@ const visibleServices = computed(() => {
   <main class="main services-page" data-od-id="services-main">
     <header class="topbar" data-od-id="global-header">
       <nav class="crumb" aria-label="页面标题"><strong>支持事项</strong></nav>
-      <div class="top-actions"><button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="profile-chip-top">林</span></div>
+      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="profile-chip-top">林</span></div>
     </header>
     <section class="services-content" data-od-id="services-content">
       <div class="services-intro" data-od-id="services-intro">

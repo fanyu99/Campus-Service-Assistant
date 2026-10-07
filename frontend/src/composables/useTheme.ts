@@ -17,6 +17,21 @@ function readStoredTheme(): ThemeOption {
     }
 }
 
+/**
+ * 把主题写回本机设置。
+ * 必须与已存的键合并：设置页保存的是 {displayName, school, campus, theme} 整个对象，
+ * 直接覆盖会把个人资料冲掉。用 merge 之后，两边谁先写都不会互相破坏。
+ */
+function persistTheme(option: ThemeOption): void {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY)
+        const saved = raw ? JSON.parse(raw) ?? {} : {}
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...saved, theme: option }))
+    } catch {
+        // 隐私模式 / 配额满：存不进去也不该影响切换本身
+    }
+}
+
 const theme = ref<ThemeOption>(readStoredTheme())
 const media = window.matchMedia(DARK_QUERY)
 
@@ -26,12 +41,21 @@ function resolveDark(option: ThemeOption): boolean {
 }
 
 /**
+ * 当前实际落在明还是暗（跟随系统时看系统偏好）。
+ * 单独用一个 ref 而不是 computed：media.matches 不是响应式依赖，
+ * 系统偏好变化时 computed 不会重算；而 paint() 每次都会跑，在这里同步最可靠。
+ * 常驻栏的快捷切换按钮用它决定显示太阳还是月亮。
+ */
+const isDark = ref(resolveDark(theme.value))
+
+/**
  * 把主题写进 <html data-theme>。
  * 幂等：值没变就不写 —— 重复写同一个值也会惊动 ParticleBackground 的 MutationObserver，
  * 让它白重建一次粒子引擎。
  */
 function paint(option: ThemeOption): void {
     const next = resolveDark(option) ? 'dark' : 'light'
+    isDark.value = next === 'dark'
     if (document.documentElement.dataset.theme !== next) document.documentElement.dataset.theme = next
 }
 
@@ -58,6 +82,7 @@ export function setTheme(option: ThemeOption, origin?: RippleOrigin): void {
     const commit = () => {
         theme.value = option
         paint(option)
+        persistTheme(option)
     }
 
     if (!origin || resolveDark(option) === resolveDark(theme.value) || !canPlayThemeRipple()) {
@@ -69,5 +94,5 @@ export function setTheme(option: ThemeOption, origin?: RippleOrigin): void {
 }
 
 export function useTheme() {
-    return { theme }
+    return { theme, isDark }
 }

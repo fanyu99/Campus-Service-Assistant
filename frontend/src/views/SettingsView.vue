@@ -2,6 +2,7 @@
 
 import { ref, useTemplateRef, watch } from 'vue'
 import AppSelect from '../components/AppSelect.vue'
+import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 import { setTheme, useTheme, type ThemeOption } from '../composables/useTheme'
 
 const noticeRead = ref(false)
@@ -48,7 +49,7 @@ watch([displayName, school, campus, theme], () => {
   <main class="main settings-page" data-od-id="settings-main">
     <header class="topbar" data-od-id="settings-header">
       <nav class="crumb" aria-label="页面标题"><strong>设置</strong></nav>
-      <div class="top-actions"><button type="button" class="icon-btn" :aria-label="noticeRead ? '通知（无未读）' : '通知'" :data-tip="noticeRead ? '通知（无未读）' : '通知'" data-od-id="settings-notification-button" @click="dismissNotice"><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg><span v-if="!noticeRead" class="dot-badge" /></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="settings-profile-chip">林</span></div>
+      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" :aria-label="noticeRead ? '通知（无未读）' : '通知'" :data-tip="noticeRead ? '通知（无未读）' : '通知'" data-od-id="settings-notification-button" @click="dismissNotice"><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg><span v-if="!noticeRead" class="dot-badge" /></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="settings-profile-chip">林</span></div>
     </header>
 
     <section class="settings-content" data-od-id="settings-content">

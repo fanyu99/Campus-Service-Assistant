@@ -6,6 +6,7 @@ import { recentConversations, serviceItems } from '../data/home.mock'
 import { useEyeGaze } from '../composables/useEyeGaze'
 import { useCharacterBubble } from '../composables/useCharacterBubble'
 import AnimatedButton from '../components/AnimatedButton.vue'
+import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 
 const DRAFT_KEY = 'campus-assistant.draft'
 const MAX_H = 104
@@ -165,6 +166,7 @@ try {
     <header class="topbar" data-od-id="global-header">
       <nav class="crumb" aria-label="页面标题"><strong>首页</strong></nav>
       <div class="top-actions">
+        <ThemeToggleButton />
         <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
         <span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="profile-chip-top">林</span>
       </div>
