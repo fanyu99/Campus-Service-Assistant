@@ -1,7 +1,8 @@
 <script setup lang="ts">
 
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useProfile, avatarInitial } from '../composables/useProfile'
 import AnimatedButton from '../components/AnimatedButton.vue'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 
@@ -13,6 +14,8 @@ type Message = {
 }
 
 const route = useRoute()
+const { profile } = useProfile()
+const avatarText = computed(() => avatarInitial(profile.value.displayName))
 const question = ref('')
 const status = ref('')
 const isError = ref(false)
@@ -137,7 +140,7 @@ watch(
           <svg class="i" aria-hidden="true"><use href="#i-bell" /></svg>
           <span class="dot-badge" />
         </button>
-        <span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="chat-profile-chip">林</span>
+        <span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName" data-od-id="chat-profile-chip">{{ avatarText }}</span>
       </div>
     </header>
 

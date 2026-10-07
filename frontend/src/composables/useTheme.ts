@@ -57,6 +57,19 @@ function paint(option: ThemeOption): void {
     const next = resolveDark(option) ? 'dark' : 'light'
     isDark.value = next === 'dark'
     if (document.documentElement.dataset.theme !== next) document.documentElement.dataset.theme = next
+    syncThemeColor()
+}
+
+/**
+ * 同步 <meta name="theme-color">（移动端浏览器地址栏 / 状态栏配色）。
+ * 原先 index.html 里写死浅色 #f4f2ed，切到深色后地址栏仍是浅色，割裂。
+ * 直接读当前主题的 --page-bg，保证与页面底色一致。
+ */
+function syncThemeColor(): void {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) return
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--page-bg').trim()
+    if (bg) meta.setAttribute('content', bg)
 }
 
 // 系统主题变化只在「跟随系统」时生效；这种切换不做扩散（没有触点），直接落。

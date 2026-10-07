@@ -1,15 +1,30 @@
 <script setup lang="ts">
 
-import { ref, useTemplateRef, watch } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import AppSelect from '../components/AppSelect.vue'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 import { setTheme, useTheme, type ThemeOption } from '../composables/useTheme'
+import { useProfile, avatarInitial, clearLocalData as clearStoredData } from '../composables/useProfile'
 
 const noticeRead = ref(false)
 const saved = ref(false)
-const displayName = ref('林同学')
-const school = ref('华中科技大学')
-const campus = ref('主校区')
+
+/* 资料统一走 useProfile：写入即持久化，并会与 useTheme 的 theme 字段 merge。
+   用带 setter 的 computed 接 v-model，避免再维护一份本地 ref + watch 同步。 */
+const { profile, setProfile } = useProfile()
+const displayName = computed({
+  get: () => profile.value.displayName,
+  set: (value: string) => setProfile({ displayName: value }),
+})
+const school = computed({
+  get: () => profile.value.school,
+  set: (value: string) => setProfile({ school: value }),
+})
+const campus = computed({
+  get: () => profile.value.campus,
+  set: (value: string) => setProfile({ campus: value }),
+})
+const avatarText = computed(() => avatarInitial(profile.value.displayName))
 
 const { theme } = useTheme()
 const themeOptions: readonly ThemeOption[] = ['跟随系统', '浅色', '深色']
@@ -34,14 +49,11 @@ function saveProfile() {
 }
 
 function clearLocalData() {
-  localStorage.removeItem('campus-service-assistant-settings')
+  /* 同时清掉首页草稿（原实现只删了设置键，草稿会残留） */
+  clearStoredData()
   saved.value = true
   window.setTimeout(() => { saved.value = false }, 1800)
 }
-
-watch([displayName, school, campus, theme], () => {
-  localStorage.setItem('campus-service-assistant-settings', JSON.stringify({ displayName: displayName.value, school: school.value, campus: campus.value, theme: theme.value }))
-})
 
 </script>
 
@@ -49,14 +61,14 @@ watch([displayName, school, campus, theme], () => {
   <main class="main settings-page" data-od-id="settings-main">
     <header class="topbar" data-od-id="settings-header">
       <nav class="crumb" aria-label="页面标题"><strong>设置</strong></nav>
-      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" :aria-label="noticeRead ? '通知（无未读）' : '通知'" :data-tip="noticeRead ? '通知（无未读）' : '通知'" data-od-id="settings-notification-button" @click="dismissNotice"><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg><span v-if="!noticeRead" class="dot-badge" /></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="settings-profile-chip">林</span></div>
+      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" :aria-label="noticeRead ? '通知（无未读）' : '通知'" :data-tip="noticeRead ? '通知（无未读）' : '通知'" data-od-id="settings-notification-button" @click="dismissNotice"><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg><span v-if="!noticeRead" class="dot-badge" /></button><span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName" data-od-id="settings-profile-chip">{{ avatarText }}</span></div>
     </header>
 
     <section class="settings-content" data-od-id="settings-content">
       <div class="settings-head"><h1 data-od-id="settings-heading">设置</h1></div>
 
       <div class="settings-layout">
-        <section class="settings-section profile-section" data-od-id="profile-settings"><div class="section-heading"><div><h2>个人资料</h2></div><span class="profile-mark" aria-hidden="true">林</span></div><div class="profile-grid"><label class="field"><span>显示名称</span><span class="composer-shell"><input v-model="displayName" type="text" autocomplete="name" /></span></label><label class="field"><span>学校</span><span class="composer-shell"><input v-model="school" type="text" autocomplete="organization" /></span></label><label class="field"><span>校区</span><span class="composer-shell"><input v-model="campus" type="text" /></span></label></div></section>
+        <section class="settings-section profile-section" data-od-id="profile-settings"><div class="section-heading"><div><h2>个人资料</h2></div><span class="profile-mark" aria-hidden="true">{{ avatarText }}</span></div><div class="profile-grid"><label class="field"><span>显示名称</span><span class="composer-shell"><input v-model="displayName" type="text" autocomplete="name" /></span></label><label class="field"><span>学校</span><span class="composer-shell"><input v-model="school" type="text" autocomplete="organization" /></span></label><label class="field"><span>校区</span><span class="composer-shell"><input v-model="campus" type="text" /></span></label></div></section>
 
         <section class="settings-section" data-od-id="appearance-settings"><div class="section-heading"><div><h2>页面外观</h2></div></div><div class="setting-row"><div><strong>主题</strong></div><AppSelect ref="themeSelect" :model-value="theme" :options="themeOptions" label="选择主题" class="select-shell" data-od-id="theme-select" @update:model-value="onThemeChange" /></div></section>
 

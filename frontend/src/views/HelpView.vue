@@ -1,8 +1,12 @@
 <script setup lang="ts">
 
 import { computed, ref } from 'vue'
+import { useProfile, avatarInitial } from '../composables/useProfile'
 import AnimatedButton from '../components/AnimatedButton.vue'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
+
+const { profile } = useProfile()
+const avatarText = computed(() => avatarInitial(profile.value.displayName))
 
 const query = ref('')
 const activeCategory = ref('全部')
@@ -39,7 +43,7 @@ function dismissNotice() {
   <main class="main help-page" data-od-id="help-main">
     <header class="topbar" data-od-id="help-header">
       <nav class="crumb" aria-label="页面标题"><strong>使用帮助</strong></nav>
-      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" :aria-label="noticeRead ? '通知（无未读）' : '通知'" :data-tip="noticeRead ? '通知（无未读）' : '通知'" data-od-id="help-notification-button" @click="dismissNotice"><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg><span v-if="!noticeRead" class="dot-badge" /></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="help-profile-chip">林</span></div>
+      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" :aria-label="noticeRead ? '通知（无未读）' : '通知'" :data-tip="noticeRead ? '通知（无未读）' : '通知'" data-od-id="help-notification-button" @click="dismissNotice"><svg class="i" aria-hidden="true"><use href="#i-bell" /></svg><span v-if="!noticeRead" class="dot-badge" /></button><span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName" data-od-id="help-profile-chip">{{ avatarText }}</span></div>
     </header>
 
     <section class="help-content" data-od-id="help-content">

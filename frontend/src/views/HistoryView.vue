@@ -2,7 +2,11 @@
 
 import { computed, ref } from 'vue'
 import { recentConversations } from '../data/home.mock'
+import { useProfile, avatarInitial } from '../composables/useProfile'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
+
+const { profile } = useProfile()
+const avatarText = computed(() => avatarInitial(profile.value.displayName))
 
 const activeFilter = ref('全部')
 const query = ref('')
@@ -20,7 +24,7 @@ const visibleRecords = computed(() => {
 
 <template>
   <main class="main history-page" data-od-id="history-main">
-    <header class="topbar" data-od-id="global-header"><nav class="crumb" aria-label="页面标题"><strong>最近记录</strong></nav><div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="profile-chip-top">林</span></div></header>
+    <header class="topbar" data-od-id="global-header"><nav class="crumb" aria-label="页面标题"><strong>最近记录</strong></nav><div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button><span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName" data-od-id="profile-chip-top">{{ avatarText }}</span></div></header>
     <section class="history-content" data-od-id="history-content"><div class="history-head"><div class="history-title-block"><h1 data-od-id="history-heading">查找历史记录</h1><label class="history-search composer-shell" data-od-id="history-search"><svg class="i" aria-hidden="true"><use href="#i-search" /></svg><span class="sr-only">搜索历史记录</span><input v-model="query" type="search" placeholder="按问题或标签搜索" autocomplete="off" /><button v-if="query" type="button" class="clear-search" aria-label="清空" @click="query = ''">清空</button></label></div><nav class="history-filters" aria-label="记录筛选" data-od-id="history-filters"><button v-for="filter in filters" :key="filter" type="button" class="filter-tab" :class="{ 'is-active': activeFilter === filter }" :aria-pressed="activeFilter === filter" @click="activeFilter = filter">{{ filter }}</button></nav></div>
       <section class="history-list-wrap" aria-labelledby="history-heading" data-od-id="history-list"><div class="history-list-heading"><span>对话记录</span><span class="list-count">按时间排序</span></div><ul v-if="visibleRecords.length" class="history-list"><li v-for="item in visibleRecords" :key="item.id" class="history-item" :data-od-id="'history-item-' + item.id"><time class="record-time">{{ item.time }}</time><div class="record-body"><div class="record-title-line"><h2>{{ item.question }}</h2><span class="record-status" :class="{ 'is-pending': item.status === '待继续' }">{{ item.status }}</span></div><p>{{ item.detail }}<span class="record-tag">{{ item.tag }}</span></p></div><RouterLink class="record-link spark-button" :to="{ name: 'chat', query: { q: item.question } }" :aria-label="'继续咨询：' + item.question">继续咨询<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></RouterLink></li></ul><div v-else class="empty-state" data-od-id="history-empty"><h2>还没有咨询记录</h2><p>咨询过一次后，问题和办理进度会显示在这里。</p><RouterLink class="text-action spark-button" :to="{ name: 'chat' }">开始咨询</RouterLink></div></section>
     </section>

@@ -1,3 +1,15 @@
+# 校园办事小秘书 · 容器编排
+#
+# ⚠️ 现状说明（2026-10-07 审查记录）
+#   仓库当前只有 frontend/，尚无 backend/ 目录。而 frontend/nginx.conf 已把
+#   /api/ 反代到 http://backend:8000（服务名必须是 backend，见 frontend/docs/deploy.md）。
+#   两者不自洽：若把 backend 段直接启用，`docker compose up` 会因缺少构建上下文
+#   ./backend 而整体失败；若保持现状只起 frontend，则所有 /api/* 请求会 502。
+#
+#   因此下面 backend / db 两段以注释形式给出「计划中的另一半」，后端代码就绪后：
+#     1) 取消 backend、db、volumes 与 depends_on 的注释；
+#     2) 在仓库根目录准备 .env（参考 .env.example，不入库），填入云密钥与库口令；
+#     3) 后端需监听 8000，并保证与 frontend 处于同一默认网络。
 services:
   frontend:
     build:
@@ -6,3 +18,35 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+    # depends_on:
+    #   - backend
+
+  # ── 后端（实施方案第六章 / 第十章：FastAPI + MySQL + AgentArts 适配层）────────
+  # backend:
+  #   build:
+  #     context: ./backend
+  #   container_name: campus-service-assistant-backend
+  #   restart: unless-stopped
+  #   environment:
+  #     # 云密钥只存在于后端环境变量，绝不进前端或版本库（实施方案第十四章）
+  #     AGENTARTS_API_KEY: ${AGENTARTS_API_KEY:?请在 .env 中设置}
+  #     DATABASE_URL: ${DATABASE_URL:-mysql+pymysql://app:app@db:3306/campus}
+  #   expose:
+  #     - "8000"
+  #   depends_on:
+  #     - db
+
+  # db:
+  #   image: mysql:8
+  #   container_name: campus-service-assistant-db
+  #   restart: unless-stopped
+  #   environment:
+  #     MYSQL_DATABASE: ${MYSQL_DATABASE:-campus}
+  #     MYSQL_USER: ${MYSQL_USER:-app}
+  #     MYSQL_PASSWORD: ${MYSQL_PASSWORD:?请在 .env 中设置}
+  #     MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?请在 .env 中设置}
+  #   volumes:
+  #     - db-data:/var/lib/mysql
+
+# volumes:
+#   db-data:

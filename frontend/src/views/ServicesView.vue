@@ -2,7 +2,12 @@
 
 import { computed, ref } from 'vue'
 import { serviceItems } from '../data/home.mock'
+import { SERVICE_ICON, FALLBACK_SERVICE_ICON } from '../data/service-icons'
+import { useProfile, avatarInitial } from '../composables/useProfile'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
+
+const { profile } = useProfile()
+const avatarText = computed(() => avatarInitial(profile.value.displayName))
 
 const query = ref('')
 const activeCategory = ref('全部')
@@ -16,18 +21,6 @@ const extendedServices = [
   { id: 'scholarship', title: '奖助学金申请', description: '申请条件、材料与提交时间', category: '学业', icon: '¥', tone: 'orange', prompt: '申请奖助学金需要准备哪些材料？' },
   { id: 'network', title: '校园网与账号', description: '网络开通、密码与账号问题', category: '账号', icon: '@', tone: 'blue', prompt: '校园网账号无法登录应该怎么处理？' },
 ]
-/** 事务图标：按 id 映射到内联 sprite，与首页服务行同一套映射。
-    不再用 mock 里的 Unicode 字符（▣ ⌁ ◷ ¥ @）—— 那些符号在多数中文字体里
-    缺字或回退成别的字形，粗细也跟全站的线性图标对不上。 */
-const SERVICE_ICON: Record<string, string> = {
-  'student-card': 'i-id',
-  'campus-card': 'i-card',
-  repair: 'i-wrench',
-  leave: 'i-calendar',
-  scholarship: 'i-award',
-  network: 'i-wifi',
-}
-
 const visibleServices = computed(() => {
   const normalized = query.value.trim().toLowerCase()
   return extendedServices.filter((item) => {
@@ -42,17 +35,17 @@ const visibleServices = computed(() => {
   <main class="main services-page" data-od-id="services-main">
     <header class="topbar" data-od-id="global-header">
       <nav class="crumb" aria-label="页面标题"><strong>支持事项</strong></nav>
-      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button><span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="profile-chip-top">林</span></div>
+      <div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button><span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName" data-od-id="profile-chip-top">{{ avatarText }}</span></div>
     </header>
     <section class="services-content" data-od-id="services-content">
       <div class="services-intro" data-od-id="services-intro">
         <h1 data-od-id="services-heading">查找支持事项</h1>
-        <label class="search-field composer-shell" data-od-id="services-search"><span class="sr-only">搜索支持事项</span><input v-model="query" type="search" placeholder="搜索事项名称或关键词" autocomplete="off" /><button v-if="query" type="button" class="clear-search" aria-label="清空" @click="query = ''">清空</button></label>
+        <label class="search-field composer-shell" data-od-id="services-search"><svg class="i" aria-hidden="true"><use href="#i-search" /></svg><span class="sr-only">搜索支持事项</span><input v-model="query" type="search" placeholder="搜索事项名称或关键词" autocomplete="off" /><button v-if="query" type="button" class="clear-search" aria-label="清空" @click="query = ''">清空</button></label>
         <div class="category-filter" role="list" aria-label="事项分类" data-od-id="service-categories"><button v-for="category in categories" :key="category" type="button" class="category-tab" :class="{ 'is-active': activeCategory === category }" :aria-pressed="activeCategory === category" @click="activeCategory = category">{{ category }}</button></div>
       </div>
       <section class="service-list-wrap" aria-labelledby="services-heading" data-od-id="service-list">
         <div class="list-heading"><span>全部事项</span><span class="list-count">{{ visibleServices.length }} 项</span></div>
-        <ul v-if="visibleServices.length" class="service-list"><li v-for="item in visibleServices" :key="item.id" class="service-item" :data-od-id="'service-item-' + item.id"><span class="service-mark" aria-hidden="true"><svg class="i"><use :href="`#${SERVICE_ICON[item.id] ?? 'i-doc'}`" /></svg></span><div class="service-copy"><h2>{{ item.title }}</h2><p>{{ item.description }}</p></div><span class="service-category">{{ item.category }}</span><RouterLink class="service-link spark-button" :to="{ name: 'chat', query: { q: item.prompt } }" :aria-label="'咨询' + item.title">开始咨询<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></RouterLink></li></ul>
+        <ul v-if="visibleServices.length" class="service-list"><li v-for="item in visibleServices" :key="item.id" class="service-item" :data-od-id="'service-item-' + item.id"><span class="service-mark" aria-hidden="true"><svg class="i"><use :href="`#${SERVICE_ICON[item.id] ?? FALLBACK_SERVICE_ICON}`" /></svg></span><div class="service-copy"><h2>{{ item.title }}</h2><p>{{ item.description }}</p></div><span class="service-category">{{ item.category }}</span><RouterLink class="service-link spark-button" :to="{ name: 'chat', query: { q: item.prompt } }" :aria-label="'咨询' + item.title">开始咨询<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></RouterLink></li></ul>
         <div v-else class="empty-state" data-od-id="services-empty"><h2>没有匹配的事项</h2><p>换个更短的关键词，或把分类切回“全部”。</p><button type="button" class="text-action spark-button" @click="query = ''; activeCategory = '全部'">重置筛选</button></div>
       </section>
     </section>
