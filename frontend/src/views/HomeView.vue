@@ -3,11 +3,13 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { recentConversations, serviceItems } from '../data/home.mock'
+import { SERVICE_ICON, FALLBACK_SERVICE_ICON } from '../data/service-icons'
 import { useEyeGaze } from '../composables/useEyeGaze'
 import { useCharacterBubble } from '../composables/useCharacterBubble'
+import { useProfile, avatarInitial, DRAFT_STORAGE_KEY } from '../composables/useProfile'
 import AnimatedButton from '../components/AnimatedButton.vue'
+import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 
-const DRAFT_KEY = 'campus-assistant.draft'
 const MAX_H = 104
 
 const router = useRouter()
@@ -21,13 +23,6 @@ const { hoverMessage, setHoverMessage, clearHoverMessage } = useCharacterBubble(
 
 useEyeGaze(character)
 
-/** 服务图标：按 id 映射到内联 sprite，数据层（home.mock.ts）保持不变 */
-const SERVICE_ICON: Record<string, string> = {
-  'student-card': 'i-id',
-  'campus-card': 'i-card',
-  repair: 'i-wrench',
-  leave: 'i-calendar',
-}
 const visibleRecent = computed(() => recentConversations.slice(0, 3))
 
 const hoverMessages = {
@@ -46,28 +41,14 @@ function pickMessage(messages: string[]) {
   return messages[Math.floor(Math.random() * messages.length)]
 }
 
-function readProfileName() {
-  const keys = ['campus-assistant.user', 'campus-assistant.profile', 'userProfile', 'currentUser']
-  for (const key of keys) {
-    try {
-      const raw = localStorage.getItem(key)
-      if (!raw) continue
-      const data = JSON.parse(raw) as { name?: string; realName?: string; username?: string }
-      const name = data.name ?? data.realName ?? data.username
-      if (typeof name === 'string' && name.trim()) return name.trim()
-    } catch (e) {
-      /* 忽略无法解析的本地资料 */
-    }
-  }
-  return ''
-}
-
-const userName = readProfileName()
-const userLabel = userName ? userName + '同学' : '同学'
+/* 个人资料统一取自 useProfile（与设置页、侧栏同一数据源）。
+   原先这里另读四个不存在的 localStorage 键，导致设置页改的名字永远不生效。 */
+const { profile } = useProfile()
+const avatarText = computed(() => avatarInitial(profile.value.displayName))
 const greeting = computed(() => {
   const hour = new Date().getHours()
   const prefix = hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
-  return prefix + '，' + userLabel
+  return prefix + '，' + profile.value.displayName
 })
 const waitingMessages = ['我在等你把问题写完。', '我已经准备好了，快输入嘛～', '输入中？我在认真等着呢。']
 const characterMessage = computed(() => {
@@ -100,7 +81,7 @@ function fill(text: string) {
   isError.value = false
   autoGrow()
   try {
-    localStorage.setItem(DRAFT_KEY, text)
+    localStorage.setItem(DRAFT_STORAGE_KEY, text)
   } catch (e) {
     /* 隐私模式等场景下忽略 */
   }
@@ -137,7 +118,7 @@ function onInput() {
     isError.value = false
   }
   try {
-    localStorage.setItem(DRAFT_KEY, question.value)
+    localStorage.setItem(DRAFT_STORAGE_KEY, question.value)
   } catch (e) {
     /* 忽略 */
   }
@@ -152,7 +133,7 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 try {
-  const draft = localStorage.getItem(DRAFT_KEY)
+  const draft = localStorage.getItem(DRAFT_STORAGE_KEY)
   if (draft) question.value = draft
 } catch (e) {
   /* 忽略 */
@@ -165,8 +146,9 @@ try {
     <header class="topbar" data-od-id="global-header">
       <nav class="crumb" aria-label="页面标题"><strong>首页</strong></nav>
       <div class="top-actions">
+        <ThemeToggleButton />
         <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
-        <span class="avatar" role="img" aria-label="当前用户：林同学" data-od-id="profile-chip-top">林</span>
+        <span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName" data-od-id="profile-chip-top">{{ avatarText }}</span>
       </div>
     </header>
 
@@ -219,7 +201,7 @@ try {
           <ul class="list">
             <li v-for="item in serviceItems" :key="item.id">
               <button type="button" class="row" :data-od-id="`service-card-${item.id}`" @mouseenter="setHover(hoverMessages.services)" @mouseleave="clearHover" @focus="setHover(hoverMessages.services)" @blur="clearHover" @click="goChat(item.prompt)">
-                <span class="row-icon" aria-hidden="true"><svg class="i"><use :href="'#' + SERVICE_ICON[item.id]"/></svg></span>
+                <span class="row-icon" aria-hidden="true"><svg class="i"><use :href="'#' + (SERVICE_ICON[item.id] ?? FALLBACK_SERVICE_ICON)"/></svg></span>
                 <span class="row-title">{{ item.title }}</span>
                 <span class="row-cat">{{ item.category }}</span>
                 <svg class="i row-chev" aria-hidden="true"><use href="#i-chev"/></svg>

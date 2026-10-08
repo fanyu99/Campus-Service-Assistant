@@ -9,6 +9,11 @@ useTheme()
 
 const isNoticeOpen = ref(false)
 const noticeCloseButton = ref<HTMLButtonElement | null>(null)
+/** 飞出动画的载体：「角色 + 卡片」作为整体挂在它身上 */
+const flyerEl = ref<HTMLElement | null>(null)
+/** dx / dy 实时算好后写进 CSS 变量，动画本身交给 CSS keyframes */
+const flyerStyle = ref<Record<string, string>>({})
+const flyerFlying = ref(false)
 /** 通知按类型配图标：同一列表里三条类型不同，全用铃铛就没有区分度了 */
 const notifications = [
   { id: 'service-update', type: '服务更新', icon: 'i-doc', title: '学生证补办服务说明已更新', detail: '补办材料清单已在支持事项里更新。', time: '刚刚',
@@ -34,6 +39,40 @@ function pickNoticeGreeting() {
   return noticeGreetings[Math.floor(Math.random() * noticeGreetings.length)]
 }
 
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * 打开通知弹窗：把「角色 + 卡片」当成一个整体（.notification-flyer），
+ * 从被点的铃铛中心冲出、展开到弹窗正中。
+ *
+ * flyer 的盒子就是卡片盒子，transform-origin 取 center center，
+ * 于是缩放原点 = 卡片中心。开始帧位移取
+ *   dx = 触发点中心 X − 卡片静止中心 X
+ *   dy = 触发点中心 Y − 卡片静止中心 Y
+ * 卡片中心正好压住触发点，结束帧回到 translate(0, 0)。
+ * 两个中心在同一帧、布局稳定后一起量（此时 flyer 还没有 transform，
+ * getBoundingClientRect 拿到的就是最终落位），保证飞出点精确。
+ */
+async function openNotice(trigger: HTMLElement) {
+  flyerFlying.value = false
+  flyerStyle.value = {}
+  isNoticeOpen.value = true
+
+  await nextTick()
+  const el = flyerEl.value
+  if (!el || prefersReducedMotion()) return
+
+  const t = trigger.getBoundingClientRect()
+  const r = el.getBoundingClientRect()
+  const dx = t.left + t.width / 2 - (r.left + r.width / 2)
+  const dy = t.top + t.height / 2 - (r.top + r.height / 2)
+
+  flyerStyle.value = { '--fly-dx': `${dx.toFixed(2)}px`, '--fly-dy': `${dy.toFixed(2)}px` }
+  flyerFlying.value = true
+}
+
 function onDocumentClick(event: MouseEvent) {
   const target = event.target as Element | null
   const trigger = target?.closest<HTMLElement>('[data-od-id*="notification-button"]')
@@ -42,7 +81,7 @@ function onDocumentClick(event: MouseEvent) {
   trigger.querySelector('.dot-badge')?.remove()
   trigger.setAttribute('aria-label', '通知（无未读）')
   trigger.setAttribute('data-tip', '通知（无未读）')
-  isNoticeOpen.value = true
+  void openNotice(trigger)
 }
 
 function closeNotice() {
@@ -55,7 +94,12 @@ function onWindowKeydown(event: KeyboardEvent) {
 
 watch(isNoticeOpen, async (open) => {
   document.body.style.overflow = open ? 'hidden' : ''
-  if (!open) return
+  if (!open) {
+    // 复位飞出动画，下次打开（v-if 会重建节点）才能重新播一遍
+    flyerFlying.value = false
+    flyerStyle.value = {}
+    return
+  }
   noticeBase.value = pickNoticeGreeting()
   noticeHover.value = null
   await nextTick()
@@ -109,41 +153,60 @@ onBeforeUnmount(() => {
 
   <div v-if="isNoticeOpen" class="notification-modal" role="presentation" @click.self="closeNotice">
     <div class="notification-dialog-shell">
-      <div class="notification-character">
-        <img src="/assets/notification-character.png" alt="">
-        <div class="character-bubble notification-bubble" role="status" aria-live="polite">{{ noticeMessage }}</div>
-      </div>
+      <!-- 角色与卡片同属一个整体：飞出动画加在 flyer 上，两者一起位移、缩放 -->
+      <div ref="flyerEl" class="notification-flyer" :class="{ 'is-flying': flyerFlying }" :style="flyerStyle">
+        <div class="notification-character">
+          <img src="/assets/notification-character.png" alt="">
+          <div class="character-bubble notification-bubble" role="status" aria-live="polite">{{ noticeMessage }}</div>
+        </div>
 
-      <div class="notification-card-frame">
-        <span class="notification-card-ring" aria-hidden="true"></span>
-        <section class="notification-card" role="dialog" aria-modal="true" aria-labelledby="notification-title">
-          <button ref="noticeCloseButton" type="button" class="notification-close" aria-label="关闭通知" @click="closeNotice">
-            <span class="notification-close-mark" aria-hidden="true"></span>
-          </button>
-          <div class="notification-header">
-            <span class="notification-kicker">校园通知</span>
-            <h2 id="notification-title">通知中心</h2>
-          </div>
-          <ul class="notification-list">
-            <li
-              v-for="item in notifications"
-              :key="item.id"
-              class="notification-item"
-              @mouseenter="noticeHover = item.bubble"
-              @mouseleave="noticeHover = null"
-            >
-              <span class="notification-item-icon"><svg class="i" aria-hidden="true"><use :href="`#${item.icon}`"/></svg></span>
-              <span class="notification-item-body"><span class="notification-item-meta"><strong>{{ item.type }}</strong><time>{{ item.time }}</time></span><b>{{ item.title }}</b><span>{{ item.detail }}</span></span>
-            </li>
-          </ul>
-        </section>
+        <div class="notification-card-frame">
+          <span class="notification-card-ring" aria-hidden="true"></span>
+          <section class="notification-card" role="dialog" aria-modal="true" aria-labelledby="notification-title">
+            <button ref="noticeCloseButton" type="button" class="notification-close" aria-label="关闭通知" @click="closeNotice">
+              <span class="notification-close-mark" aria-hidden="true"></span>
+            </button>
+            <div class="notification-header">
+              <span class="notification-kicker">校园通知</span>
+              <h2 id="notification-title">通知中心</h2>
+            </div>
+            <ul class="notification-list">
+              <li
+                v-for="item in notifications"
+                :key="item.id"
+                class="notification-item"
+                @mouseenter="noticeHover = item.bubble"
+                @mouseleave="noticeHover = null"
+              >
+                <span class="notification-item-icon"><svg class="i" aria-hidden="true"><use :href="`#${item.icon}`"/></svg></span>
+                <span class="notification-item-body"><span class="notification-item-meta"><strong>{{ item.type }}</strong><time>{{ item.time }}</time></span><b>{{ item.title }}</b><span>{{ item.detail }}</span></span>
+              </li>
+            </ul>
+          </section>
+        </div>
       </div>
     </div>
   </div>
 </template>
 <style scoped>
-.notification-modal{position:fixed;z-index:30;inset:0;display:grid;place-items:center;padding:clamp(24px,6vw,72px);background:color-mix(in srgb,var(--page-bg) 68%,#64748b 32% / 72%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.notification-modal{position:fixed;z-index:30;inset:0;display:grid;place-items:center;padding:clamp(24px,6vw,72px);background:color-mix(in srgb,var(--page-bg) 68%,#64748b 32% / 72%);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:notice-backdrop-in 360ms cubic-bezier(.2,.8,.3,1) both}
+@keyframes notice-backdrop-in{from{opacity:0}to{opacity:1}}
 .notification-dialog-shell{--char-width:min(380px,66vw);--char-height:calc(var(--char-width) * 0.69318);--char-gap:56px;--char-band:calc(var(--char-height) * 0.94918 - 6px + var(--char-gap));--notice-card-radius:32px;position:relative;width:min(620px,100%);padding-top:var(--char-band)}
+/* ── 打开动画：漫画气泡从触发点冲出并展开 ─────────────────────────────────
+   触发点 = 被点的那颗铃铛的中心；落位 = flyer 静止时的中心（即卡片中心）。
+   App.vue 在挂载后实时量出两个位移写进变量：
+     --fly-dx = 触发点中心 X − 卡片静止中心 X
+     --fly-dy = 触发点中心 Y − 卡片静止中心 Y
+   开始帧 translate(dx, dy) scale(.1) + opacity 0 —— 卡片缩成一点贴在铃铛上；
+   结束帧 translate(0, 0) scale(1) + opacity 1 —— 摊开、落在弹窗正中。
+   flyer 的盒子就是卡片盒子，所以 transform-origin: center center 恰好是卡片中心，
+   开始帧的卡片中心正好压住触发点。
+   角色是 flyer 的绝对定位子元素，跟着一起被 transform —— 两者始终是一个整体。
+   只动 transform / opacity：全程合成层，不触发重排。
+   shell 的 padding-top 仍保留 --char-band，用来把「角色 + 卡片」整体摆正。 */
+.notification-flyer{position:relative;z-index:1;width:100%;transform-origin:center center}
+.notification-flyer.is-flying{animation:notice-fly-in 360ms cubic-bezier(.2,.8,.3,1) both;will-change:transform,opacity}
+@keyframes notice-fly-in{from{transform:translate(var(--fly-dx,0),var(--fly-dy,0)) scale(.1);opacity:0}to{transform:translate(0,0) scale(1);opacity:1}}
 /* ── 通知卡片光效 ─────────────────────────────────────────────────────────
    frame 只做定位与层叠上下文，真正画光的是三个层（从下往上）：
      ::before  环境弥散光 —— 圆角矩形 + 柔和锥形双瓣，仅呼吸不旋转
@@ -178,8 +241,10 @@ onBeforeUnmount(() => {
    即「可视内容底边」在图片高度中的占比；用它对齐卡片上沿并轻微下压 6px，
    手部就正好压在边框线上，头部完整露出在卡片之外。
    注意不能直接用 img 的 bottom —— 图片底部还有 30px 透明留白。
-   --char-gap 是角色顶部到 shell 顶部的留白，专门给上方的消息气泡用。 */
-.notification-character{position:absolute;z-index:2;top:var(--char-gap);left:50%;width:var(--char-width);transform:translateX(-50%);pointer-events:none}
+   --char-gap 是角色顶部到 shell 顶部的留白，专门给上方的消息气泡用。
+   定位基准现在是 flyer（盒子 = 卡片盒子，top 就是卡片上沿），
+   所以要把 shell 的 padding-top（--char-band）减掉，才是角色在 flyer 里的坐标。 */
+.notification-character{position:absolute;z-index:2;top:calc(var(--char-gap) - var(--char-band));left:50%;width:var(--char-width);transform:translateX(-50%);pointer-events:none}
 /* 气泡视觉样式来自 theme.css 的全局 .character-bubble，这里只声明摆放位置：
    居中对齐角色，贴在角色头顶上方 6px，箭头垂直向下指向头部。 */
 .notification-bubble{--bubble-rest:translateX(-50%);left:50%;bottom:calc(100% + 6px)}
@@ -195,10 +260,12 @@ onBeforeUnmount(() => {
   .notification-card-frame::after{left:-2%;right:-2%;bottom:-52px;height:160px;filter:blur(24px)}
   @keyframes notice-glow-breathe{0%,100%{opacity:.52;filter:blur(20px);transform:scale(.94,1)}50%{opacity:.86;filter:blur(30px);transform:scale(1.03,1.1)}}
 }
-/* 无障碍：关闭全部光效动画，但保留静止的描边环与背光（仍是完整的视觉，只是不动） */
+/* 无障碍：关闭全部光效与进出场动画，但保留静止的描边环与背光（仍是完整的视觉，只是不动）。
+   飞出动画直接不播，卡片以静止态（弹窗正中）呈现。 */
 @media (prefers-reduced-motion:reduce){
   .notification-card-frame::before,.notification-card-frame::after,.notification-card-ring::before{animation:none}
   .notification-card-frame::after{opacity:.6;filter:blur(28px);transform:none}
+  .notification-flyer.is-flying,.notification-modal{animation:none}
 }
 </style>
 

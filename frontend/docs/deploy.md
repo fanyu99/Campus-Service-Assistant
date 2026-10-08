@@ -49,6 +49,33 @@ services:
 
 > **重要**：`nginx.conf` 中反代目标是 `http://backend:8000`，因此 compose 中**后端服务名必须为 `backend`**，否则需同步修改 `nginx.conf`。
 
+### 3.1 只构建前端静态镜像（后端未就绪时）
+
+后端目录尚不存在时，可以只把前端打包成镜像单独运行。**在仓库根目录执行**（构建上下文是 `frontend/`）：
+
+```bash
+# 构建
+docker build -t campus-service-assistant-frontend:latest ./frontend
+
+# 运行：浏览器访问 http://localhost:8080
+docker run -d --name campus-frontend -p 8080:80 campus-service-assistant-frontend:latest
+
+# 查看日志 / 停止并删除
+docker logs -f campus-frontend
+docker rm -f campus-frontend
+```
+
+镜像基于 `nginx:1.27-alpine`，静态产物位于 `/usr/share/nginx/html`。
+Dockerfile 为多阶段构建，构建期用 `node:20-alpine` 执行 `npm ci` + `npm run build`，运行期不携带 Node 与源码。
+
+> ⚠️ **单独运行时的 `/api` 行为**：`nginx.conf` 把 `/api/` 反代到 `http://backend:8000`。
+> 没有 backend 容器时，访问 `/api/*` 会返回 **502**。当前六个页面都使用本地 mock 数据，
+> 不影响页面浏览；等后端就绪后用 `docker compose up` 一起启动即可。
+
+> 💡 **只想用 WSL 里已有的 nginx 托管静态文件**（不打包镜像）：本地 `npm run build` 后，
+> 把 `frontend/dist/` 拷进 WSL，nginx 的 `root` 指向该目录，并保留
+> `try_files $uri $uri/ /index.html;` 以支持 history 路由回退。
+
 ---
 
 ## 4. Nginx 配置要点（`frontend/nginx.conf`）

@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useCharacterBubble } from '../composables/useCharacterBubble'
+import { useProfile, avatarInitial } from '../composables/useProfile'
 
 interface NavItem {
   name: string
@@ -11,6 +13,12 @@ interface NavItem {
 
 const route = useRoute()
 const { setHoverMessage, clearHoverMessage } = useCharacterBubble()
+
+/* 侧栏身份信息原先写死「林同学 / 本科生 · 一校区」，与设置页脱节；
+   改为消费 useProfile 的单一数据源。 */
+const { profile } = useProfile()
+const avatarText = computed(() => avatarInitial(profile.value.displayName))
+const profileMeta = computed(() => [profile.value.school, profile.value.campus].filter(Boolean).join(' · '))
 
 const primaryNav: NavItem[] = [
   { name: 'home', to: '/', icon: 'i-home', label: '首页' },
@@ -88,12 +96,12 @@ function showNavMessage(name: string) {
       </router-link>
     </nav>
     <div class="profile" data-od-id="profile-chip">
-      <span class="avatar" aria-hidden="true">林</span>
-      <span class="profile-meta"><strong>林同学</strong><span>本科生 · 一校区</span></span>
+      <span class="avatar" aria-hidden="true">{{ avatarText }}</span>
+      <span class="profile-meta"><strong>{{ profile.displayName }}</strong><span>{{ profileMeta }}</span></span>
     </div>
     <div class="bar-actions">
       <button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button-mobile"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button>
-      <span class="avatar" role="img" aria-label="当前用户：林同学">林</span>
+      <span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName">{{ avatarText }}</span>
     </div>
   </aside>
 </template>
