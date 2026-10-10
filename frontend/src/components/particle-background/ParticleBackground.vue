@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { resolveParticleConfig } from './particle-presets'
 import { ParticleEngine } from './particle-engine'
 import type { ParticleBackgroundProps } from './particle-types'
@@ -162,6 +162,16 @@ onBeforeUnmount(() => {
   engine?.destroy()
   engine = null
 })
+
+/**
+ * 数量类参数（移动端降配时会变）必须重建引擎才生效 —— 配置只在 createEngine
+ * 里读一次。跨断点时重建会重置粒子位置，但那只发生在旋转屏幕/拉伸窗口时，
+ * 代价可以接受；不重建的话降配就是一句空话。
+ */
+watch(
+  () => [props.particleCount, props.petalCount, props.trailLimit, props.trailStrength],
+  () => createEngine(),
+)
 </script>
 
 <template>
