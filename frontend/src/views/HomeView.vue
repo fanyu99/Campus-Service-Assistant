@@ -158,9 +158,11 @@ try {
           <div class="character-wrap">
             <div class="character-bubble" role="status" aria-live="polite">{{ characterMessage }}</div>
             <div ref="character" class="character">
-              <img class="ch-base" src="/assets/character.png" alt="">
-              <div class="ch-iris-mask"><div class="ch-iris"><img src="/assets/character-iris.png" alt=""></div></div>
-              <img class="ch-lash" src="/assets/character-lash.png" alt="">
+              <!-- fetchpriority=high：角色底图是首页的 LCP 元素，让它插队到 JS 之后第一梯队。
+                   iris / lash 是叠加图层，尺寸与底图一致，跟着一起下完即可。 -->
+              <img class="ch-base" src="/assets/character.webp" alt="" width="1024" height="954" fetchpriority="high" decoding="async">
+              <div class="ch-iris-mask"><div class="ch-iris"><img src="/assets/character-iris.webp" alt="" width="388" height="236" decoding="async"></div></div>
+              <img class="ch-lash" src="/assets/character-lash.webp" alt="" width="388" height="236" decoding="async">
             </div>
           </div>
         </div>
@@ -372,7 +374,7 @@ try {
   .composer-wrap{width:100%}
   .composer{padding:13px 13px 11px;border-radius:22px}
   .composer textarea{font-size:16px}
-  .send{height:44px;padding:0 18px}
+  .send{height:var(--control-h);padding:0 18px}
   .panel{flex:none;width:100%;flex-direction:column;gap:30px}
   .panel h2{font-size:clamp(22px,6.3vw,30px);line-height:1.25}
   .row,.recent-row{min-height:52px;width:calc(100% + 16px);margin-inline:-8px;padding:8px}
