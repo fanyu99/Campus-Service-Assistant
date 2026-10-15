@@ -127,3 +127,10 @@ coverage/
 
 # TypeScript 增量构建
 *.tsbuildinfo
+
+# Python 工件
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
