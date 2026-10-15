@@ -1,0 +1,136 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build output
+dist/
+build/
+dist-ssr/
+*.local
+
+# Vue / JS 产物文件
+.cache/
+.temp/
+.parcel-cache/
+.next/
+.nuxt/
+.output/
+.turbo/
+.rollup.cache/
+webpack-cache/
+.eslintcache
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 环境变量文件（敏感信息）
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# 密钥 / 证书（绝不入库）
+*.pem
+*.key
+*.crt
+*.cer
+*.der
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ppk
+*.ovpn
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+
+# 凭据 / 密钥文件
+*.secret
+*.secrets
+secrets/
+.secrets/
+.netrc
+_netrc
+.pypirc
+.npmrc
+serviceAccountKey.json
+*credentials*.json
+google-services.json
+GoogleService-Info.plist
+
+# 云 / 容器 / 集群凭据
+.aws/
+.gcloud/
+.kube/
+kubeconfig*
+.docker/config.json
+docker-compose.override.yml
+
+# 基础设施状态（常含明文敏感值）
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# AI 助手 / 本地智能体数据（记忆、索引、会话）
+# 注：.workbuddy-ai/ 下只有 memory/ 属于个人数据；skills/ 是人为维护的设计资产
+#     （设计体系文档与示例代码），单独放行入库，其余仍不入库。
+#     用 `.workbuddy-ai/*` 而不是 `.workbuddy-ai/`：后者会把目录本身排除，
+#     git 不再向下遍历，后面的 ! 例外规则就失效了。
+.workbuddy-ai/*
+!.workbuddy-ai/skills/
+.codeartsdoer/
+.claude/
+.cursor/
+.windsurf/
+.continue/
+.codeium/
+.trae/
+.aider*
+
+# 数据库导出
+*.dump
+*.sql.gz
+
+# 编辑器 / IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 测试 / 覆盖率
+coverage/
+*.lcov
+.nyc_output/
+
+# 包管理锁文件（按需保留其一，这里默认忽略 pnpm/yarn，保留 package-lock.json 可自行调整）
+# pnpm-lock.yaml
+# yarn.lock
+
+# TypeScript 增量构建
+*.tsbuildinfo
+
+# Python 工件
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/

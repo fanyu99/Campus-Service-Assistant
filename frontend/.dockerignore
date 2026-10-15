@@ -1,0 +1,11 @@
+node_modules
+dist
+docs
+.git
+.gitignore
+.vscode
+*.log
+*.tsbuildinfo
+.env
+.env.local
+.env.development
