@@ -194,7 +194,7 @@ defineExpose({ triggerEl })
 .select-pop-enter-from,.select-pop-leave-to{opacity:0;transform:translateY(-6px) scale(.98)}
 /* 触屏尺寸：与站内其他移动端控件统一到 44px 点击目标 */
 @media (max-width:700px){
-  .select-trigger,.select-option{min-height:44px}
+  .select-trigger,.select-option{min-height:var(--control-h)}
 }
 @media (prefers-reduced-motion:reduce){
   .select-panel,.select-chev{transition:none}

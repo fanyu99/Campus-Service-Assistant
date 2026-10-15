@@ -134,8 +134,8 @@ const rootProps = computed(() => (props.to ? { to: props.to } : { type: 'button'
 
 @media (max-width: 700px) {
   .animated-button {
-    /* 触屏：把高度顶到 44px 的可点区域下限 */
-    min-height: 44px;
+    /* 触屏：统一到站内控件的触控目标下限（见 theme.css 的 --control-h） */
+    min-height: var(--control-h);
     padding: 0 20px;
     font-size: 13.5px;
   }
