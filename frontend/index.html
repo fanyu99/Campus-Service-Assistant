@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f4f2ed" />
+    <!-- 首页角色底图是首屏 LCP 元素。SPA 的 <img> 要等 JS bundle 下载并执行后才会
+         出现在 DOM 里，靠它自己发起请求会白白晚一个 bundle 的时间；这里在 HTML
+         解析阶段就把它推上网络，与 JS bundle 并行下载。
+         代价：深链到 /chat 等非首页路由时这 160 KB 不会被用到。以首页为落地页的
+         主流程收益更大，故保留。通知弹窗的角色图不走 preload（会跟首屏抢带宽），
+         改由 App.vue 在首屏空闲后预热，见 App.vue 的 warmNotificationCharacter。 -->
+    <link rel="preload" as="image" href="/assets/character.webp" fetchpriority="high" />
     <title>校园办事小秘书</title>
   </head>
   <body>

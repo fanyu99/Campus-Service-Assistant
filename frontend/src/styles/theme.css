@@ -94,6 +94,14 @@
   /* 动态色块层（沿用原首页 hero 的结构，配色改为角色发色） */
   --font-display: 'Epilogue', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   --font-body: 'DM Sans', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  /* ── 控件尺寸 token ────────────────────────────────────────────────────
+     移动端所有可点控件的触屏目标下限。各页（导航项、图标按钮、标签页、
+     下拉触发器、次要按钮……）一律引用它，不再各写各的 40 / 42 / 44，
+     否则同一屏里会出现肉眼可见的高度差。
+     圆角同理：方形控件统一 --control-radius，胶囊控件统一 --control-radius-pill。 */
+  --control-h: 44px;
+  --control-radius: 12px;
+  --control-radius-pill: 999px;
 }
 
 /* ── 深色主题（设置页“页面外观 > 主题”切换；跟随系统由 useTheme 处理）────── */
@@ -295,7 +303,7 @@ ul {
   place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 11px;
+  border-radius: var(--control-radius);
   color: var(--muted);
   transition: background .16s ease, color .16s ease;
 }

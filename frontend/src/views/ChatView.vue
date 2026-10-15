@@ -164,7 +164,7 @@ watch(
             :class="`is-${message.role}`"
             :data-od-id="`${message.role}-message-${message.id}`"
           >
-            <img v-if="message.role === 'assistant'" class="message-avatar" src="/assets/brand-mark.png" alt="" aria-hidden="true" />
+            <img v-if="message.role === 'assistant'" class="message-avatar" src="/assets/brand-mark.webp" alt="" aria-hidden="true" width="256" height="256" decoding="async" />
             <div class="message-content">
               <div class="message-meta">
                 <strong>{{ message.role === 'assistant' ? '校园助手' : '我' }}</strong>
@@ -175,7 +175,7 @@ watch(
           </article>
 
           <div v-if="isSending" class="typing-row" data-od-id="typing-indicator">
-            <img class="message-avatar" src="/assets/brand-mark.png" alt="" aria-hidden="true" />
+            <img class="message-avatar" src="/assets/brand-mark.webp" alt="" aria-hidden="true" width="256" height="256" decoding="async" />
             <div class="typing-bubble" role="status" aria-label="校园助手正在生成回答">
               <div class="loading-animation loading-animation--assistant" aria-hidden="true">
                 <span class="loading-ball" />
@@ -697,7 +697,7 @@ watch(
   .chat-composer-wrap { width: 100%; }
   .composer { padding: 13px 13px 11px; border-radius: 22px; }
   .composer textarea { font-size: 16px; }
-  .send { height: 44px; padding: 0 18px; }
+  .send { height: var(--control-h); padding: 0 18px; }
   .chips { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; padding-block: 3px; }
   .chips::-webkit-scrollbar { display: none; }
 }

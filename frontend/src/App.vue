@@ -106,22 +106,86 @@ watch(isNoticeOpen, async (open) => {
   noticeCloseButton.value?.focus()
 })
 
+/**
+ * 粒子背景的移动端降配开关。
+ *
+ * 背景是一块全屏 canvas，每帧都要清屏 + 铺一层渐变 + 逐个绘制 82 个粒子、
+ * 72 片花瓣，再加上跟随指针的拖尾彗星（上限 120 条，每条最多 8 个点）。
+ * 手机 DPR 2 下一帧就是百万像素级填充，属于纯装饰里最贵的一块。
+ * 窄屏按约一半降配，桌面端参数完全不动。
+ */
+const isCompactBackground = ref(false)
+let compactQuery: MediaQueryList | null = null
+
+function syncCompactBackground(event?: MediaQueryListEvent) {
+  isCompactBackground.value = event ? event.matches : (compactQuery?.matches ?? false)
+}
+
+/**
+ * 预热通知弹窗的角色图。
+ *
+ * 弹窗是 `v-if` 挂在点击那一刻才建节点的，图片请求与解码也就从那一刻才开始；
+ * 而飞出动画只有 360 ms —— 实机上的表现就是角色图层空白、或者动画播完了才闪出来。
+ * 这里在首屏渲染完成、浏览器空闲时先拉一次，让它进 HTTP 缓存与解码缓存，
+ * 点开时直接出成品。
+ *
+ * 用 requestIdleCallback 而不是 onMounted 里直接拉：角色底图（character.webp）才是
+ * 首屏 LCP，必须让它先占满带宽，预热得等主线程真正闲下来。
+ */
+const NOTIFICATION_CHARACTER_SRC = '/assets/notification-character.webp'
+let warmHandle: number | undefined
+
+function warmNotificationCharacter() {
+  const img = new Image()
+  img.decoding = 'async'
+  img.src = NOTIFICATION_CHARACTER_SRC
+}
+
+function scheduleWarmUp() {
+  const idle = (
+    window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+    }
+  ).requestIdleCallback
+
+  if (idle) {
+    warmHandle = idle(warmNotificationCharacter, { timeout: 2000 })
+    return
+  }
+  // Safari 15 之前没有 requestIdleCallback，退化成「首屏之后再等一会儿」
+  warmHandle = window.setTimeout(warmNotificationCharacter, 600)
+}
+
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
   window.addEventListener('keydown', onWindowKeydown)
+  compactQuery = window.matchMedia('(max-width: 700px)')
+  syncCompactBackground()
+  compactQuery.addEventListener('change', syncCompactBackground)
+  scheduleWarmUp()
 })
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
   window.removeEventListener('keydown', onWindowKeydown)
+  compactQuery?.removeEventListener('change', syncCompactBackground)
+  compactQuery = null
+  if (warmHandle !== undefined) {
+    ;(window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(warmHandle)
+    window.clearTimeout(warmHandle)
+  }
   document.body.style.overflow = ''
 })
 </script>
 
 <template>
   <AppSprite />
+  <!-- 粒子背景：桌面端用默认满配；窄屏（≤700px）按约一半降配 ——
+       全屏 canvas 每帧的填充量在手机上才是真的开销，装饰氛围不需要那么多。
+       拖尾只降上限（120 → 40 条彗星），不把 trailStrength 归零：
+       归零后彗星头还在飞、尾巴没了，看起来像掉帧的方块。 -->
   <ParticleBackground
-    :particle-count="82"
-    :petal-count="72"
+    :particle-count="isCompactBackground ? 40 : 82"
+    :petal-count="isCompactBackground ? 30 : 72"
     :heart-scale="62"
     :repulsion-strength="0.86"
     :heart-force-radius="1.22"
@@ -129,7 +193,7 @@ onBeforeUnmount(() => {
     :wind-strength="0.022"
     :drift-strength="0.28"
     :trail-strength="0.26"
-    :trail-limit="120"
+    :trail-limit="isCompactBackground ? 40 : 120"
     :waterline-ratio="0.88"
     :water-depth="0.06"
     :ripple-limit="54"
@@ -156,7 +220,7 @@ onBeforeUnmount(() => {
       <!-- 角色与卡片同属一个整体：飞出动画加在 flyer 上，两者一起位移、缩放 -->
       <div ref="flyerEl" class="notification-flyer" :class="{ 'is-flying': flyerFlying }" :style="flyerStyle">
         <div class="notification-character">
-          <img src="/assets/notification-character.png" alt="">
+          <img src="/assets/notification-character.webp" alt="" width="880" height="610" decoding="async">
           <div class="character-bubble notification-bubble" role="status" aria-live="polite">{{ noticeMessage }}</div>
         </div>
 
