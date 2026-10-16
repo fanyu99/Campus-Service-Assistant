@@ -1,0 +1,16 @@
+# 构建上下文瘦身：镜像运行只需要 app/ + alembic/ + alembic.ini + requirements.txt
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+.env.*
+tests/
+docs/
+*.md
+pytest.ini
+requirements-dev.txt

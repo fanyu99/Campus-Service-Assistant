@@ -134,3 +134,13 @@ def test_conversations_readonly_idempotent(db_client: TestClient, db_session):
     first = db_client.get("/api/conversations", headers={"X-Session-Token": TOKEN_A})
     second = db_client.get("/api/conversations", headers={"X-Session-Token": TOKEN_A})
     assert first.json() == second.json()
+
+
+def test_conversations_long_token_matches_truncated_write(db_client: TestClient, db_session):
+    """写入与读取必须用同一套规范化规则，否则会话在「最近记录」中不可见。"""
+    stored_token = "a" * 64
+    _add_conversation(db_session, stored_token, "超长标识的问题", AnswerStatus.ANSWERED, 1)
+    resp = db_client.get("/api/conversations", headers={"X-Session-Token": "a" * 80})
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+    assert resp.json()["conversations"][0]["question"] == "超长标识的问题"

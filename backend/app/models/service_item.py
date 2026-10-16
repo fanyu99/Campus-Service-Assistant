@@ -14,6 +14,9 @@ class ServiceItem(Base):
     name: Mapped[str] = mapped_column(String(128))
     category: Mapped[str] = mapped_column(String(32))
     description: Mapped[str] = mapped_column(String(255))
+    icon: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    tone: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    prompt: Mapped[str | None] = mapped_column(String(255), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(

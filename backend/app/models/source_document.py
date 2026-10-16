@@ -1,7 +1,7 @@
 import enum
 from datetime import date
 
-from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Integer, String
+from sqlalchemy import CheckConstraint, Date, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, enum_values
@@ -41,5 +41,6 @@ class SourceDocument(Base):
     )
     version: Mapped[str] = mapped_column(String(32))
     reviewed_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     service_item: Mapped["ServiceItem"] = relationship(back_populates="documents")
