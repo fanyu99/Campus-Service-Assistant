@@ -1,24 +1,55 @@
 <script setup lang="ts">
 
-import { computed, ref } from 'vue'
-import { recentConversations } from '../data/home.mock'
+import { computed, onMounted, ref } from 'vue'
+import { fetchConversations } from '../api/client'
+import { describeApiError, toHistoryRecord } from '../data/answer-status'
 import { useProfile, avatarInitial } from '../composables/useProfile'
+import { useServiceItems } from '../composables/useServiceItems'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 
 const { profile } = useProfile()
 const avatarText = computed(() => avatarInitial(profile.value.displayName))
 
+/* 最近记录改为真实接口（GET /api/conversations）。
+   会话按匿名标识（X-Session-Token）隔离：后端只返回本机标识下的记录，
+   缺失标识时返回空列表，不会全量暴露他人咨询。 */
+const HISTORY_LIMIT = 50
+const { labelForCode, load: loadItems } = useServiceItems()
+
 const activeFilter = ref('全部')
 const query = ref('')
-const records = recentConversations.map((item, index) => ({ ...item, status: index === 1 ? '待继续' : '已完成', detail: index === 1 ? '上次对话还可以继续查看办理条件' : '已查看过相关办理路径' }))
+const loading = ref(false)
+const error = ref('')
+const records = ref<ReturnType<typeof toHistoryRecord>[]>([])
 const filters = ['全部', '待继续', '已完成']
+
 const visibleRecords = computed(() => {
   const keyword = query.value.trim().toLowerCase()
-  return records.filter((item) => {
+  return records.value.filter((item) => {
     const inFilter = activeFilter.value === '全部' || item.status === activeFilter.value
-    const inQuery = !keyword || `${item.question} ${item.detail} ${item.tag}`.toLowerCase().includes(keyword)
+    const inQuery =
+      !keyword ||
+      `${item.question} ${item.detail} ${labelForCode(item.itemCode)}`.toLowerCase().includes(keyword)
     return inFilter && inQuery
   })
+})
+
+async function loadHistory(): Promise<void> {
+  loading.value = true
+  error.value = ''
+  try {
+    const data = await fetchConversations(HISTORY_LIMIT)
+    records.value = data.conversations.map((summary) => toHistoryRecord(summary))
+  } catch (cause) {
+    error.value = describeApiError(cause)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  void loadItems()
+  void loadHistory()
 })
 </script>
 
@@ -26,7 +57,7 @@ const visibleRecords = computed(() => {
   <main class="main history-page" data-od-id="history-main">
     <header class="topbar" data-od-id="global-header"><nav class="crumb" aria-label="页面标题"><strong>最近记录</strong></nav><div class="top-actions"><ThemeToggleButton /><button type="button" class="icon-btn" aria-label="通知" data-tip="通知" data-od-id="notification-button"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot-badge"></span></button><span class="avatar" role="img" :aria-label="'当前用户：' + profile.displayName" data-od-id="profile-chip-top">{{ avatarText }}</span></div></header>
     <section class="history-content" data-od-id="history-content"><div class="history-head"><div class="history-title-block"><h1 data-od-id="history-heading">查找历史记录</h1><label class="history-search composer-shell" data-od-id="history-search"><svg class="i" aria-hidden="true"><use href="#i-search" /></svg><span class="sr-only">搜索历史记录</span><input v-model="query" type="search" placeholder="按问题或标签搜索" autocomplete="off" /><button v-if="query" type="button" class="clear-search" aria-label="清空" @click="query = ''">清空</button></label></div><nav class="history-filters" aria-label="记录筛选" data-od-id="history-filters"><button v-for="filter in filters" :key="filter" type="button" class="filter-tab" :class="{ 'is-active': activeFilter === filter }" :aria-pressed="activeFilter === filter" @click="activeFilter = filter">{{ filter }}</button></nav></div>
-      <section class="history-list-wrap" aria-labelledby="history-heading" data-od-id="history-list"><div class="history-list-heading"><span>对话记录</span><span class="list-count">按时间排序</span></div><ul v-if="visibleRecords.length" class="history-list"><li v-for="item in visibleRecords" :key="item.id" class="history-item" :data-od-id="'history-item-' + item.id"><time class="record-time">{{ item.time }}</time><div class="record-body"><div class="record-title-line"><h2>{{ item.question }}</h2><span class="record-status" :class="{ 'is-pending': item.status === '待继续' }">{{ item.status }}</span></div><p>{{ item.detail }}<span class="record-tag">{{ item.tag }}</span></p></div><RouterLink class="record-link spark-button" :to="{ name: 'chat', query: { q: item.question } }" :aria-label="'继续咨询：' + item.question">继续咨询<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></RouterLink></li></ul><div v-else class="empty-state" data-od-id="history-empty"><h2>还没有咨询记录</h2><p>咨询过一次后，问题和办理进度会显示在这里。</p><RouterLink class="text-action spark-button" :to="{ name: 'chat' }">开始咨询</RouterLink></div></section>
+      <section class="history-list-wrap" aria-labelledby="history-heading" data-od-id="history-list"><div class="history-list-heading"><span>对话记录</span><span class="list-count">按时间排序</span></div><ul v-if="visibleRecords.length" class="history-list"><li v-for="item in visibleRecords" :key="item.id" class="history-item" :data-od-id="'history-item-' + item.id"><time class="record-time">{{ item.time }}</time><div class="record-body"><div class="record-title-line"><h2>{{ item.question }}</h2><span class="record-status" :class="{ 'is-pending': item.status === '待继续' }">{{ item.status }}</span></div><p>{{ item.detail }}<span class="record-tag">{{ labelForCode(item.itemCode) }}</span></p></div><RouterLink class="record-link spark-button" :to="{ name: 'chat', query: { q: item.question } }" :aria-label="'继续咨询：' + item.question">继续咨询<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></RouterLink></li></ul><div v-else-if="loading" class="empty-state" data-od-id="history-loading"><h2>正在加载记录</h2><p>正在获取本机的咨询记录。</p></div><div v-else-if="error" class="empty-state" data-od-id="history-error"><h2>记录加载失败</h2><p>{{ error }}</p><button type="button" class="text-action spark-button" @click="loadHistory()">重新加载</button></div><div v-else class="empty-state" data-od-id="history-empty"><h2>还没有咨询记录</h2><p>咨询过一次后，问题和办理进度会显示在这里。</p><RouterLink class="text-action spark-button" :to="{ name: 'chat' }">开始咨询</RouterLink></div></section>
     </section>
   </main>
 </template>

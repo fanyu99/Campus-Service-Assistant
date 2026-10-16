@@ -8,17 +8,3 @@
   tone?: 'orange' | 'blue' | 'green' | 'purple' | null
   prompt?: string | null
 }
-
-export interface TodoItem {
-  id: string
-  title: string
-  detail: string
-  status: '待确认' | '即将截止' | '已完成'
-}
-
-export interface RecentConversation {
-  id: string
-  question: string
-  time: string
-  tag: string
-}

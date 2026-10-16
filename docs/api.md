@@ -13,8 +13,8 @@
 | 侧 | 状态 | 说明 |
 |---|---|---|
 | 前端 | ✅ 契约已实现 | `frontend/src/api/client.ts` 已按本文档定义全部类型与调用函数：`checkHealth` / `fetchServiceItems` / `sendChatMessage` / `submitFeedback` / `fetchConversations` |
-| 后端 | ❌ **尚未实现** | 仓库当前无 `backend/` 目录。**本文档同时是后端的实现规格** |
-| 页面接线 | 🟡 未接线 | 六个页面目前仍使用 `frontend/src/data/home.mock.ts` 与 `setTimeout` 模拟，尚未调用上述函数 |
+| 后端 | ✅ 已实现 | `backend/` 已按本文档实现全部 6 个端点（含 `POST /api/chat/messages` 与 `GET /api/knowledge/sources`），并补录 §1.2 的 `X-Session-Token` |
+| 页面接线 | ✅ 已接线 | 六个页面已切换到真实接口：首页/支持事项用 `fetchServiceItems`、对话页用 `sendChatMessage` + `submitFeedback`、最近记录用 `fetchConversations`；`frontend/src/data/home.mock.ts` 已移除；六态渲染由 `AnswerCard` / `SourceList` / `FeedbackBar` / `StateNotice` 承担 |
 
 > 阅读顺序建议：先看 §1 通用约定与 §2 错误处理，再看 §3 数据模型，最后按需查 §4 接口详情。
 
@@ -231,7 +231,7 @@ X-Session-Token: <匿名会话标识>   # 问答与历史记录接口使用，�
 | `S07` | `major-transfer` | 转专业咨询 |
 | `S08` | `graduation` | 毕业手续 |
 
-> ⚠️ 前端 `ServicesView.vue` 的演示项 `network`（校园网与账号）**不在实施方案的 8 项事务内**，属原型演示项，无 `item_code`；建议答辩前移除或正式纳入范围。
+> ✅ 前端 `ServicesView.vue` 原有的演示项 `network`（校园网与账号）**不在实施方案的 8 项事务内**、无 `item_code`，已于 v1.2 **移出支持事项列表**；如后续正式纳入范围，需先补 `service_items` 数据与知识来源，再更新本表。
 
 ### 3.6 FeedbackReasonCode（反馈原因码，定稿）
 
@@ -505,10 +505,10 @@ GET /api/knowledge/sources
 
 | 页面 | 前端文件 | 当前数据来源 | 目标接口 | 前端函数 |
 |---|---|---|---|---|
-| 首页 | `views/HomeView.vue` | `home.mock.ts` | `GET /api/service-items` | `fetchServiceItems()` |
-| 我的对话 | `views/ChatView.vue` | `setTimeout` 模拟 | `POST /api/chat/messages`、`POST /api/feedback` | `sendChatMessage()`、`submitFeedback()` |
-| 支持事项 | `views/ServicesView.vue` | `home.mock.ts` + 本地扩展 | `GET /api/service-items` | `fetchServiceItems()` |
-| 最近记录 | `views/HistoryView.vue` | `home.mock.ts`（本地伪造 status） | `GET /api/conversations` | `fetchConversations()` |
+| 首页 | `views/HomeView.vue` | ✅ 真实接口（事项 + 最近 3 条会话） | `GET /api/service-items`、`GET /api/conversations` | `fetchServiceItems()`、`fetchConversations()` |
+| 我的对话 | `views/ChatView.vue` | ✅ 真实接口（含六态渲染与反馈闭环） | `POST /api/chat/messages`、`POST /api/feedback` | `sendChatMessage()`、`submitFeedback()` |
+| 支持事项 | `views/ServicesView.vue` | ✅ 真实接口（分类取自后端 `category`） | `GET /api/service-items` | `fetchServiceItems()` |
+| 最近记录 | `views/HistoryView.vue` | ✅ 真实接口（状态由 `result_status` 推导） | `GET /api/conversations` | `fetchConversations()` |
 | 使用帮助 | `views/HelpView.vue` | 组件内常量 | 无（FAQ 静态） | — |
 | 设置 | `views/SettingsView.vue` | `localStorage` | 无（偏好仅存本机） | — |
 
@@ -550,3 +550,4 @@ GET /api/knowledge/sources
 | 2026-09-27 | v0.1 | 初稿（联调草案） | 由前端编制，含 6 项「待确认」 |
 | 2026-10-07 | v1.0 | 定稿并修正 | ① `answer` 由 string 改为结构化对象（对齐实施方案 8.1）② 补齐 `intent` / `need_clarification` 字段 ③ 统一错误结构与业务错误码（原「待确认」Q1）④ 定稿 `reason_code` 枚举（Q5）⑤ 定稿 `answer` 空值语义（Q3）⑥ 定稿「待继续/已完成」推导规则（Q4）⑦ 定稿 CORS 策略（Q6）⑧ 新增 §3.5 标识符规范与 §0 落地状态 ⑨ 明确 §4.4 匿名隔离与 §6.6 提示词注入要求 |
 | 2026-10-16 | v1.1 | 补录与落地说明 | ① §1.2 补录 `X-Session-Token` 请求头（后端 `GET /api/conversations` 已按其隔离，前端此前未发送，本次对齐）② §3.1 的 `icon` / `tone` / `prompt` 由「选返」转为**实际返回**（`service_items` 新增同名列，为空时回退后端缺省表）③ 明确 `POST /api/chat/messages` 的错误映射：传输层失败 503 `UPSTREAM_TIMEOUT` / `UPSTREAM_ERROR`、上游限流 429 `RATE_LIMITED`、模型输出不可用 200 `status=service_error` ④ 明确生成依据口径：仅「已核验 + 有效期内 + 有正文」的来源可产出 `answered`；过期/草稿一律拒答（`insufficient_evidence`，并在 `sources` 中回带这些来源供前端提示「资料可能已失效」）；存在冲突来源时返回 `conflict` |
+| 2026-10-16 | v1.2 | 六页接线与范围收敛 | ① §0 落地状态更新为「后端已实现 + 页面已接线」② §5 六个页面的数据来源改为真实接口（`home.mock.ts` 已移除）③ §3.5 前端演示项 `network`（校园网与账号）**移出支持事项列表**（不在 S01–S08 范围内）④ 补充实现约定：记录页「待继续/已完成」由 `result_status` 推导（§3.4），事项编码→UI key 映射见 §3.5，前端 `src/data/service-codes.ts` 与本表保持一致 |

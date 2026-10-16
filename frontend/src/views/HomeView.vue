@@ -1,9 +1,11 @@
 <script setup lang="ts">
 
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { recentConversations, serviceItems } from '../data/home.mock'
+import { fetchConversations } from '../api/client'
+import { describeApiError, toHistoryRecord } from '../data/answer-status'
 import { SERVICE_ICON, FALLBACK_SERVICE_ICON } from '../data/service-icons'
+import { useServiceItems } from '../composables/useServiceItems'
 import { useEyeGaze } from '../composables/useEyeGaze'
 import { useCharacterBubble } from '../composables/useCharacterBubble'
 import { useProfile, avatarInitial, DRAFT_STORAGE_KEY } from '../composables/useProfile'
@@ -23,7 +25,27 @@ const { hoverMessage, setHoverMessage, clearHoverMessage } = useCharacterBubble(
 
 useEyeGaze(character)
 
-const visibleRecent = computed(() => recentConversations.slice(0, 3))
+/* 常用事项与最近记录改为真实接口：
+   - 事项列表与「支持事项」页共用 useServiceItems（模块级缓存，只请求一次）；
+   - 最近记录取本机匿名标识下的最近 3 条会话（契约 §4.4）。 */
+const { items: serviceItems, labelForCode, load: loadItems } = useServiceItems()
+const recentRecords = ref<ReturnType<typeof toHistoryRecord>[]>([])
+const recentError = ref('')
+const visibleRecent = computed(() => recentRecords.value.slice(0, 3))
+
+async function loadRecent(): Promise<void> {
+  try {
+    const data = await fetchConversations(3)
+    recentRecords.value = data.conversations.map((summary) => toHistoryRecord(summary))
+  } catch (cause) {
+    recentError.value = describeApiError(cause)
+  }
+}
+
+onMounted(() => {
+  void loadItems()
+  void loadRecent()
+})
 
 const hoverMessages = {
   input: [
@@ -218,7 +240,7 @@ try {
             <li v-for="item in visibleRecent" :key="item.id">
               <button type="button" class="recent-row" :data-od-id="item.id" @mouseenter="setHover(hoverMessages.recent)" @mouseleave="clearHover" @focus="setHover(hoverMessages.recent)" @blur="clearHover" @click="goChat(item.question)">
                 <span class="recent-dot" aria-hidden="true"></span>
-                <span class="recent-body"><strong>{{ item.question }}</strong><span>{{ item.time }}<i>·</i>{{ item.tag }}</span></span>
+                <span class="recent-body"><strong>{{ item.question }}</strong><span>{{ item.time }}<i>·</i>{{ labelForCode(item.itemCode) }}</span></span>
                 <svg class="i row-chev" aria-hidden="true"><use href="#i-chev"/></svg>
               </button>
             </li>
