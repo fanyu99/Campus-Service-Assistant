@@ -1,5 +1,29 @@
-import { describe, expect, it } from 'vitest'
-import { ApiError, isSafeSourceUrl } from '../src/api/client'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { ApiError, getSessionToken, isSafeSourceUrl } from '../src/api/client'
+
+const SESSION_TOKEN_KEY = 'campus-service-assistant-session-token'
+
+describe('getSessionToken', () => {
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('首次访问生成 UUID 形态的匿名标识并持久化', () => {
+    const token = getSessionToken()
+    expect(token).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    expect(localStorage.getItem(SESSION_TOKEN_KEY)).toBe(token)
+  })
+
+  it('重复调用复用同一标识', () => {
+    const first = getSessionToken()
+    expect(getSessionToken()).toBe(first)
+  })
+
+  it('沿用已存在的标识', () => {
+    localStorage.setItem(SESSION_TOKEN_KEY, 'existing-token')
+    expect(getSessionToken()).toBe('existing-token')
+  })
+})
 
 describe('isSafeSourceUrl', () => {
   it('允许 http / https 链接', () => {

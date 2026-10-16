@@ -3,7 +3,8 @@
  *
  * 之前 HomeView 与 ServicesView 各维护一份，Services 那份多出
  * scholarship / network，容易漂移；收敛到这里统一维护。
- * 数据层（home.mock.ts）的 icon 字段保留不动，它已不再被 UI 引用。
+ * 六页接线后页面数据来自后端，但图标仍以本表为准（后端 icon 字段为选返，
+ * 其缺省值与本表保持一致，见 backend/app/services/service_items.py）。
  */
 export const SERVICE_ICON: Record<string, string> = {
   'student-card': 'i-id',
