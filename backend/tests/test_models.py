@@ -43,6 +43,9 @@ def test_service_items_columns(db_session):
         "name",
         "category",
         "description",
+        "icon",
+        "tone",
+        "prompt",
         "enabled",
         "created_at",
         "updated_at",
@@ -65,6 +68,7 @@ def test_source_documents_columns(db_session):
         "status",
         "version",
         "reviewed_at",
+        "content",
     }
 
 

@@ -1,33 +1,46 @@
 <script setup lang="ts">
 
-import { computed, ref } from 'vue'
-import { serviceItems } from '../data/home.mock'
+import { computed, onMounted, ref } from 'vue'
 import { SERVICE_ICON, FALLBACK_SERVICE_ICON } from '../data/service-icons'
 import { useProfile, avatarInitial } from '../composables/useProfile'
+import { useServiceItems } from '../composables/useServiceItems'
+import type { ServiceItem } from '../types/home'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
 
 const { profile } = useProfile()
 const avatarText = computed(() => avatarInitial(profile.value.displayName))
 
+/* 事项列表改为真实接口（GET /api/service-items）。
+   原先这里用 mock 再拼两条本地演示项（scholarship / network）；
+   network（校园网与账号）不在契约 S01–S08 范围内，已按决定移出，不再展示。 */
+const { items, loading, error, load } = useServiceItems()
+
 const query = ref('')
 const activeCategory = ref('全部')
 
-const categories = ['全部', '证件与校园卡', '宿舍与后勤', '请假与学业', '奖助与缴费', '网络与账号']
-const serviceGroups: Record<string, string> = {
-  'student-card': '证件与校园卡', 'campus-card': '证件与校园卡', repair: '宿舍与后勤', leave: '请假与学业', scholarship: '奖助与缴费', network: '网络与账号',
-}
-const extendedServices = [
-  ...serviceItems,
-  { id: 'scholarship', title: '奖助学金申请', description: '申请条件、材料与提交时间', category: '学业', icon: '¥', tone: 'orange', prompt: '申请奖助学金需要准备哪些材料？' },
-  { id: 'network', title: '校园网与账号', description: '网络开通、密码与账号问题', category: '账号', icon: '@', tone: 'blue', prompt: '校园网账号无法登录应该怎么处理？' },
-]
+/** 分类直接取自后端返回的 category，避免前端硬编码与数据源漂移 */
+const categories = computed(() => [
+  '全部',
+  ...Array.from(new Set(items.value.map((item) => item.category))),
+])
 const visibleServices = computed(() => {
   const normalized = query.value.trim().toLowerCase()
-  return extendedServices.filter((item) => {
-    const inCategory = activeCategory.value === '全部' || serviceGroups[item.id] === activeCategory.value
-    const inQuery = !normalized || [item.title, item.description, item.category].join(' ').toLowerCase().includes(normalized)
+  return items.value.filter((item) => {
+    const inCategory = activeCategory.value === '全部' || item.category === activeCategory.value
+    const inQuery =
+      !normalized ||
+      [item.title, item.description, item.category].join(' ').toLowerCase().includes(normalized)
     return inCategory && inQuery
   })
+})
+
+/** 咨询时预填的问题：优先用后端 prompt，缺省回退为标题 */
+function promptFor(item: ServiceItem): string {
+  return item.prompt ?? `我想咨询${item.title}`
+}
+
+onMounted(() => {
+  void load()
 })
 </script>
 
@@ -45,7 +58,9 @@ const visibleServices = computed(() => {
       </div>
       <section class="service-list-wrap" aria-labelledby="services-heading" data-od-id="service-list">
         <div class="list-heading"><span>全部事项</span><span class="list-count">{{ visibleServices.length }} 项</span></div>
-        <ul v-if="visibleServices.length" class="service-list"><li v-for="item in visibleServices" :key="item.id" class="service-item" :data-od-id="'service-item-' + item.id"><span class="service-mark" aria-hidden="true"><svg class="i"><use :href="`#${SERVICE_ICON[item.id] ?? FALLBACK_SERVICE_ICON}`" /></svg></span><div class="service-copy"><h2>{{ item.title }}</h2><p>{{ item.description }}</p></div><span class="service-category">{{ item.category }}</span><RouterLink class="service-link spark-button" :to="{ name: 'chat', query: { q: item.prompt } }" :aria-label="'咨询' + item.title">开始咨询<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></RouterLink></li></ul>
+        <ul v-if="visibleServices.length" class="service-list"><li v-for="item in visibleServices" :key="item.id" class="service-item" :data-od-id="'service-item-' + item.id"><span class="service-mark" aria-hidden="true"><svg class="i"><use :href="`#${SERVICE_ICON[item.id] ?? FALLBACK_SERVICE_ICON}`" /></svg></span><div class="service-copy"><h2>{{ item.title }}</h2><p>{{ item.description }}</p></div><span class="service-category">{{ item.category }}</span><RouterLink class="service-link spark-button" :to="{ name: 'chat', query: { q: promptFor(item) } }" :aria-label="'咨询' + item.title">开始咨询<svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></RouterLink></li></ul>
+        <div v-else-if="loading" class="empty-state" data-od-id="services-loading"><h2>正在加载事项</h2><p>正在从服务端获取支持事项列表。</p></div>
+        <div v-else-if="error" class="empty-state" data-od-id="services-error"><h2>事项列表加载失败</h2><p>{{ error }}</p><button type="button" class="text-action spark-button" @click="load(true)">重新加载</button></div>
         <div v-else class="empty-state" data-od-id="services-empty"><h2>没有匹配的事项</h2><p>换个更短的关键词，或把分类切回“全部”。</p><button type="button" class="text-action spark-button" @click="query = ''; activeCategory = '全部'">重置筛选</button></div>
       </section>
     </section>

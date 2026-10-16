@@ -2,6 +2,39 @@
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/+$/, '')
 const REQUEST_TIMEOUT = 8000
+const SESSION_TOKEN_KEY = 'campus-service-assistant-session-token'
+
+/** 生成匿名会话标识（不可预测，符合 docs/api.md §4.4 的隐私要求） */
+function createSessionToken(): string {
+  const cryptoObj = globalThis.crypto
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') return cryptoObj.randomUUID()
+  // 非安全上下文或旧运行时的回退实现
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+    const rand = Math.floor(Math.random() * 16)
+    const value = char === 'x' ? rand : (rand & 0x3) | 0x8
+    return value.toString(16)
+  })
+}
+
+let fallbackSessionToken: string | null = null
+
+/**
+ * 匿名会话标识：首次访问生成并持久化到本机，随问答与历史记录接口一起发送
+ * （docs/api.md §1.2）。后端据此隔离会话，禁止跨标识读取。
+ * localStorage 不可用（隐私模式等）时退化为进程内单例。
+ */
+export function getSessionToken(): string {
+  try {
+    const stored = localStorage.getItem(SESSION_TOKEN_KEY)
+    if (stored) return stored
+    const token = createSessionToken()
+    localStorage.setItem(SESSION_TOKEN_KEY, token)
+    return token
+  } catch {
+    if (!fallbackSessionToken) fallbackSessionToken = createSessionToken()
+    return fallbackSessionToken
+  }
+}
 
 /** 问答上下文（可选，用于缩小检索范围） */
 export interface ChatContext {
@@ -47,7 +80,7 @@ export interface AnswerCard {
   warnings: string[]
 }
 
-/** 回答状态（对应实施方案 8.2） */
+/** 回答状态（对应实施方案 8.2；smalltalk 为 v1.3 新增） */
 export type AnswerStatus =
   | 'answered'
   | 'need_clarification'
@@ -55,6 +88,7 @@ export type AnswerStatus =
   | 'insufficient_evidence'
   | 'conflict'
   | 'service_error'
+  | 'smalltalk'
 
 export interface ChatResponse {
   conversation_id: string
@@ -67,6 +101,28 @@ export interface ChatResponse {
   /** 是否需要追问（语义等价于 status === 'need_clarification'） */
   need_clarification: boolean
   clarifying_question: string | null
+  /** smalltalk 状态的纯文本回复（寒暄 / 引导语），其余状态缺省为 null */
+  text?: string | null
+}
+
+/** 消息角色（v1.3 新增，消息明细一问一答成对） */
+export type ChatMessageRole = 'question' | 'assistant'
+
+/** 消息明细（v1.3 新增，GET /api/chat/messages 的数组元素） */
+export interface ChatMessageItem {
+  role: ChatMessageRole
+  /** question 轮 = 用户原文；assistant 轮 = 回复文本（answered 时为卡片 summary） */
+  content: string
+  status: AnswerStatus
+  /** 仅 assistant 且 answered 轮携带结构化卡片 */
+  answer: AnswerCard | null
+  sources: Source[]
+  created_at: string
+}
+
+export interface ChatMessagesResponse {
+  messages: ChatMessageItem[]
+  total: number
 }
 
 /** 反馈原因码（对应实施方案 9.4 reason_code） */
@@ -120,6 +176,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const headers = new Headers(init?.headers)
     if (!headers.has('Accept')) headers.set('Accept', 'application/json')
     if (init?.body != null && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+    // 匿名会话标识：问答与历史记录按它隔离（缺失时后端返回空列表）
+    if (!headers.has('X-Session-Token')) headers.set('X-Session-Token', getSessionToken())
 
     const response = await fetch(`${API_BASE}${path}`, { ...init, headers, signal: controller.signal })
 
@@ -168,6 +226,13 @@ export function sendChatMessage(payload: ChatMessageRequest): Promise<ChatRespon
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+/** 查询会话消息明细：GET /api/chat/messages（v1.3 新增，历史可查看 / 续接） */
+export function fetchChatMessages(conversationId: string): Promise<ChatMessagesResponse> {
+  return request<ChatMessagesResponse>(
+    `/chat/messages?conversation_id=${encodeURIComponent(conversationId)}`,
+  )
 }
 
 /** 提交反馈：POST /api/feedback */

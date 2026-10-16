@@ -1,19 +1,30 @@
 <script setup lang="ts">
 
 import { computed, nextTick, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { ApiError, fetchChatMessages, sendChatMessage } from '../api/client'
+import type { ChatMessageItem, ChatResponse } from '../api/client'
+import { describeApiError, formatDateTime } from '../data/answer-status'
 import { useProfile, avatarInitial } from '../composables/useProfile'
 import AnimatedButton from '../components/AnimatedButton.vue'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
+import AnswerCard from '../components/AnswerCard.vue'
+import FeedbackBar from '../components/FeedbackBar.vue'
+import SourceList from '../components/SourceList.vue'
+import StateNotice from '../components/StateNotice.vue'
 
-type Message = {
+/** 一条消息：用户文本、助手结构化响应，或本地/接口失败（可重试） */
+type ChatMessage = {
   id: number
   role: 'user' | 'assistant'
-  text: string
   time: string
+  text?: string
+  response?: ChatResponse
+  failure?: { message: string; retryText: string }
 }
 
 const route = useRoute()
+const router = useRouter()
 const { profile } = useProfile()
 const avatarText = computed(() => avatarInitial(profile.value.displayName))
 const question = ref('')
@@ -22,24 +33,17 @@ const isError = ref(false)
 const isSending = ref(false)
 const inputEl = ref<HTMLTextAreaElement | null>(null)
 const messageList = ref<HTMLElement | null>(null)
-let nextMessageId = 2
+/** 会话标识：首轮为 null，后端创建后回传，后续轮次原样带回（契约 §4.3） */
+const conversationId = ref<string | null>(null)
+const messages = ref<ChatMessage[]>([])
+/** ?id= 加载完成但历史为空（升级前创建的旧会话）时的空态文案开关 */
+const historyEmpty = ref(false)
+let nextMessageId = 1
+let lastSubmitted = ''
 
 
 const initialQuestion = typeof route.query.q === 'string' ? route.query.q.trim() : ''
-const messages = ref<Message[]>([
-  ...(initialQuestion
-    ? [{ id: 1, role: 'user' as const, text: initialQuestion, time: '刚刚' }]
-    : []),
-])
-
-if (initialQuestion) {
-  messages.value.push({
-    id: nextMessageId++,
-    role: 'assistant',
-    text: '收到你的问题。补充院系、校区或时间，回答会更准。',
-    time: '刚刚',
-  })
-}
+const initialId = typeof route.query.id === 'string' ? route.query.id.trim() : ''
 
 function autoGrow() {
   const el = inputEl.value
@@ -86,43 +90,146 @@ function getTime() {
   return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit' }).format(new Date())
 }
 
-function submitQuestion() {
-  const text = question.value.trim()
-  if (!text || isSending.value) {
-    if (!text) {
-      status.value = '先写下你要咨询的事，再发送'
-      isError.value = true
-      inputEl.value?.focus()
-    }
-    return
-  }
+/**
+ * 发送一轮提问。
+ * - 首轮 `conversation_id` 传 null，后端创建会话；之后原样回传，刷新页面即新会话（契约 §4.3）。
+ * - 会话失效（404）时清空标识并提示，用户可直接重发，避免卡在坏会话上。
+ */
+async function send(text: string, appendUser = true): Promise<void> {
+  const message = text.trim()
+  if (!message || isSending.value) return
 
+  if (appendUser) {
+    messages.value.push({ id: nextMessageId++, role: 'user', text: message, time: '刚刚' })
+  }
+  lastSubmitted = message
   isSending.value = true
   clearStatus()
-  messages.value.push({ id: nextMessageId++, role: 'user', text, time: '刚刚' })
-  question.value = ''
-  autoGrow()
   scrollToLatest()
 
-  window.setTimeout(() => {
+  try {
+    const response = await sendChatMessage({
+      conversation_id: conversationId.value,
+      message,
+    })
+    conversationId.value = response.conversation_id
+    messages.value.push({ id: nextMessageId++, role: 'assistant', time: getTime(), response })
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'CONVERSATION_NOT_FOUND') {
+      conversationId.value = null
+    }
     messages.value.push({
       id: nextMessageId++,
       role: 'assistant',
-      text: '这个问题我会按办理条件、所需材料和办理入口来回答。当前是演示版本，还没有接入校园服务数据。',
       time: getTime(),
+      failure: { message: describeApiError(error), retryText: message },
     })
+  } finally {
     isSending.value = false
     scrollToLatest()
-  }, 520)
+  }
+}
+
+function submitQuestion() {
+  const text = question.value.trim()
+  if (!text) {
+    status.value = '先写下你要咨询的事，再发送'
+    isError.value = true
+    inputEl.value?.focus()
+    return
+  }
+  if (isSending.value) return
+  question.value = ''
+  autoGrow()
+  void send(text)
+}
+
+function retry(text: string): void {
+  void send(text, false)
+}
+
+function goServices(): void {
+  router.push({ name: 'services' })
+}
+
+/** 消息明细 → 视图模型（question 轮=用户原文；assistant 轮=结构化响应） */
+function toHistoryMessage(item: ChatMessageItem, conversation: string): ChatMessage {
+  const time = formatDateTime(item.created_at)
+  if (item.role === 'question') {
+    return { id: nextMessageId++, role: 'user', time, text: item.content }
+  }
+  const response: ChatResponse = {
+    conversation_id: conversation,
+    status: item.status,
+    intent: null,
+    answer: item.answer,
+    sources: item.sources,
+    need_clarification: item.status === 'need_clarification',
+    clarifying_question: item.status === 'need_clarification' ? item.content : null,
+    text: item.status === 'smalltalk' ? item.content : undefined,
+  }
+  return { id: nextMessageId++, role: 'assistant', time, response }
+}
+
+/**
+ * 查看 / 续接历史会话（?id=，v1.3 新增）。
+ * 拉取消息明细渲染为消息列表，并设置 conversationId —— 后续轮次自动续接
+ * 同一会话（契约 §4.7 前端入口语义）。加载失败时保持空会话态，用户可
+ * 直接在下方提问开启新会话。
+ */
+async function loadHistory(conversation: string): Promise<void> {
+  clearStatus()
+  historyEmpty.value = false
+  try {
+    const data = await fetchChatMessages(conversation)
+    conversationId.value = conversation
+    historyEmpty.value = data.messages.length === 0
+    messages.value = data.messages.map((item) => toHistoryMessage(item, conversation))
+    scrollToLatest()
+  } catch (error) {
+    conversationId.value = null
+    status.value = describeApiError(error)
+    isError.value = true
+  }
+}
+
+/** 依据不足时，区分「完全没有资料」与「有资料但已过期/未核验」两种提示 */
+function evidenceTitle(response: ChatResponse): string {
+  return response.sources.length
+    ? '暂时没有可依据的最新资料'
+    : '没有找到可靠的办理依据'
+}
+
+function evidenceDescription(response: ChatResponse): string {
+  return response.sources.length
+    ? '找到的相关资料已过期或尚未核验，不作为办理依据；请以学校最新通知为准。'
+    : '这个问题我暂时没有可依据的官方资料，建议咨询责任部门，或换一种问法。'
+}
+
+/* 入口语义（契约 §4.7）：?id= → 查看 / 续接（拉历史，不自动重发）；
+   ?q= → 提问（进入后自动发送）。两者同时出现时以 ?id= 为准。 */
+if (initialId) {
+  void loadHistory(initialId)
+} else if (initialQuestion) {
+  void send(initialQuestion)
 }
 
 watch(
-  () => route.query.q,
-  (value) => {
-    const text = typeof value === 'string' ? value.trim() : ''
-    if (!text || messages.value.length) return
-    messages.value.push({ id: nextMessageId++, role: 'user', text, time: '刚刚' })
-    scrollToLatest()
+  () => [route.query.q, route.query.id] as const,
+  ([q, id]) => {
+    const idText = typeof id === 'string' ? id.trim() : ''
+    if (idText) {
+      void loadHistory(idText)
+      return
+    }
+    const text = typeof q === 'string' ? q.trim() : ''
+    if (!text || text === lastSubmitted) return
+    /* ?q= 语义是新提问：清空当前展示，另起会话再发送，
+       避免把新问题续进正在查看的历史会话里 */
+    messages.value = []
+    conversationId.value = null
+    historyEmpty.value = false
+    void send(text)
   },
 )
 
@@ -153,8 +260,14 @@ watch(
 
         <div ref="messageList" class="message-list" role="log" aria-live="polite" data-od-id="message-list">
           <div v-if="!messages.length" class="empty-state" data-od-id="empty-conversation">
-            <p>还没有对话</p>
-            <p>在下方输入框写下问题，也可以直接选一个示例</p>
+            <template v-if="historyEmpty">
+              <p>这条记录还没有对话内容</p>
+              <p>直接在下方输入问题，我会接着这条记录继续回答。</p>
+            </template>
+            <template v-else>
+              <p>还没有对话</p>
+              <p>在下方输入框写下问题，也可以直接选一个示例</p>
+            </template>
           </div>
 
           <article
@@ -170,7 +283,79 @@ watch(
                 <strong>{{ message.role === 'assistant' ? '校园助手' : '我' }}</strong>
                 <span>{{ message.time }}</span>
               </div>
-              <p class="message-bubble">{{ message.text }}</p>
+
+              <p v-if="message.text" class="message-bubble">{{ message.text }}</p>
+
+              <template v-else-if="message.response">
+                <!-- answered：结构化办事卡片 + 来源 + 反馈栏 -->
+                <template v-if="message.response.status === 'answered' && message.response.answer">
+                  <AnswerCard :card="message.response.answer" />
+                  <SourceList :sources="message.response.sources" heading="来源" />
+                  <FeedbackBar :conversation-id="message.response.conversation_id" />
+                </template>
+
+                <!-- need_clarification：把追问当作助手消息，用户直接接着回答 -->
+                <template v-else-if="message.response.status === 'need_clarification'">
+                  <p class="message-bubble">{{ message.response.clarifying_question ?? '能再多说一点吗？' }}</p>
+                  <p class="follow-hint">补充信息后直接发送，我会接着这次对话回答。</p>
+                </template>
+
+                <!-- smalltalk：寒暄 / 引导对话，渲染为普通气泡（v1.3 新增，不再机械拒绝） -->
+                <template v-else-if="message.response.status === 'smalltalk'">
+                  <p class="message-bubble">{{ message.response.text ?? '我在呢，有什么想了解的都可以问我。' }}</p>
+                </template>
+
+                <!-- unsupported：给出支持范围，不编造 -->
+                <StateNotice
+                  v-else-if="message.response.status === 'unsupported'"
+                  tone="info"
+                  title="这个问题暂时不在服务范围内"
+                  description="目前支持学生证补办、校园卡补办、宿舍报修、请假办理、奖助学金、转专业与毕业手续。"
+                  action-label="看看支持事项"
+                  @action="goServices"
+                />
+
+                <!-- insufficient_evidence：拒答，并回带过期/未核验来源做风险提示 -->
+                <template v-else-if="message.response.status === 'insufficient_evidence'">
+                  <StateNotice
+                    tone="warn"
+                    :title="evidenceTitle(message.response)"
+                    :description="evidenceDescription(message.response)"
+                  />
+                  <SourceList
+                    v-if="message.response.sources.length"
+                    :sources="message.response.sources"
+                    heading="已找到但不可用的资料"
+                  />
+                </template>
+
+                <!-- conflict：不给确定结论 -->
+                <template v-else-if="message.response.status === 'conflict'">
+                  <StateNotice
+                    tone="warn"
+                    title="资料来源存在冲突，暂不给确定结论"
+                    description="同一事项存在口径不一致的通知，请联系责任部门确认后再办理。"
+                  />
+                  <SourceList :sources="message.response.sources" heading="存在冲突的来源" />
+                </template>
+
+                <!-- service_error：服务异常，可重试 -->
+                <StateNotice
+                  v-else
+                  tone="error"
+                  title="智能问答服务暂时不可用"
+                  description="稍后再试一次；若持续失败，请稍后再来。"
+                />
+              </template>
+
+              <StateNotice
+                v-else-if="message.failure"
+                tone="error"
+                :title="message.failure.message"
+                description="可以直接重试这一次提问。"
+                action-label="重试"
+                @action="retry(message.failure.retryText)"
+              />
             </div>
           </article>
 
@@ -371,6 +556,13 @@ watch(
   border-radius: 16px 4px 16px 16px;
   background: var(--accent);
   color: var(--page-bg);
+}
+
+.follow-hint {
+  margin: 8px 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .typing-bubble {
