@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request as StarletteRequest
 
 from app.core.rate_limit import SlidingWindowLimiter, rate_limit_key
+from app.services.llm_client import MockLLMClient, get_llm_client
 
 
 class _FakeClock:
@@ -89,10 +90,17 @@ def _post(db_client: TestClient, token: str):
     )
 
 
+def _stub_llm(db_client: TestClient) -> None:
+    # 本文件测的是限流，不是模型：「食堂几点开门？」会先走 smalltalk 分类
+    # （真实模型调用会触网且不稳定），注入确定性替身隔离该依赖
+    db_client.app.dependency_overrides[get_llm_client] = lambda: MockLLMClient()
+
+
 def test_endpoint_returns_429_after_limit(db_client: TestClient):
     db_client.app.state.chat_limiter = SlidingWindowLimiter(
         max_requests=2, window_seconds=60
     )
+    _stub_llm(db_client)
     for _ in range(2):
         assert _post(db_client, "rl-token").status_code == 200
 
@@ -107,6 +115,7 @@ def test_endpoint_limit_is_per_identity(db_client: TestClient):
     db_client.app.state.chat_limiter = SlidingWindowLimiter(
         max_requests=1, window_seconds=60
     )
+    _stub_llm(db_client)
     assert _post(db_client, "token-a").status_code == 200
     assert _post(db_client, "token-a").status_code == 429
     # 另一个标识不受影响

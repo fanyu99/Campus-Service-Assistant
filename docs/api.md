@@ -1,6 +1,6 @@
 # 校园办事小秘书 · 前后端接口文档
 
-> **版本：** v1.0（定稿）
+> **版本：** v1.3（定稿）
 > **编制日期：** 2026-10-07
 > **依据：** 《校园办事小秘书实施方案》第五章「技术架构」、第八章「对话和输出设计」、第九章「数据库设计」、第十章「接口规划」
 > **定位：** 本文件是**前后端唯一的权威契约**。`frontend/docs/api.md` 已改为指向本文件，避免两份来源各自漂移。
@@ -12,9 +12,9 @@
 
 | 侧 | 状态 | 说明 |
 |---|---|---|
-| 前端 | ✅ 契约已实现 | `frontend/src/api/client.ts` 已按本文档定义全部类型与调用函数：`checkHealth` / `fetchServiceItems` / `sendChatMessage` / `submitFeedback` / `fetchConversations` |
-| 后端 | ✅ 已实现 | `backend/` 已按本文档实现全部 6 个端点（含 `POST /api/chat/messages` 与 `GET /api/knowledge/sources`），并补录 §1.2 的 `X-Session-Token` |
-| 页面接线 | ✅ 已接线 | 六个页面已切换到真实接口：首页/支持事项用 `fetchServiceItems`、对话页用 `sendChatMessage` + `submitFeedback`、最近记录用 `fetchConversations`；`frontend/src/data/home.mock.ts` 已移除；六态渲染由 `AnswerCard` / `SourceList` / `FeedbackBar` / `StateNotice` 承担 |
+| 前端 | ✅ 契约已实现 | `frontend/src/api/client.ts` 已按本文档定义全部类型与调用函数：`checkHealth` / `fetchServiceItems` / `sendChatMessage` / `fetchChatMessages` / `submitFeedback` / `fetchConversations` |
+| 后端 | ✅ 已实现 | `backend/` 已按本文档实现全部 7 个端点（含 `POST /api/chat/messages`、`GET /api/chat/messages` 与 `GET /api/knowledge/sources`），并补录 §1.2 的 `X-Session-Token` |
+| 页面接线 | ✅ 已接线 | 六个页面已切换到真实接口：首页/支持事项用 `fetchServiceItems`、对话页用 `sendChatMessage` + `submitFeedback` + `fetchChatMessages`（`?id=` 查看/续接历史）、最近记录用 `fetchConversations`；`frontend/src/data/home.mock.ts` 已移除；七态渲染由 `AnswerCard` / `SourceList` / `FeedbackBar` / `StateNotice` / 普通气泡（smalltalk）承担 |
 
 > 阅读顺序建议：先看 §1 通用约定与 §2 错误处理，再看 §3 数据模型，最后按需查 §4 接口详情。
 
@@ -44,11 +44,11 @@ X-Session-Token: <匿名会话标识>   # 问答与历史记录接口使用，�
 ```
 
 > **`X-Session-Token`（匿名会话标识，v1.1 补录）：** 由前端首次访问时生成
-> （`crypto.randomUUID()`）并持久化到本机，随 `POST /api/chat/messages` 与
-> `GET /api/conversations` 一起发送。后端据此隔离会话，**禁止跨标识读取**；
-> 缺失或空白时 `GET /api/conversations` 直接返回空列表而不做全量查询（OWASP A01）。
-> 它不是登录态，不承载任何身份信息，也不得用于识别自然人。写入与读取使用同一套
-> 规范化规则（去空白 + 截断到 64 字符）。
+> （`crypto.randomUUID()`）并持久化到本机，随 `POST /api/chat/messages`、
+> `GET /api/chat/messages` 与 `GET /api/conversations` 一起发送。后端据此隔离
+> 会话，**禁止跨标识读取**；缺失或空白时 `GET /api/conversations` 直接返回空
+> 列表而不做全量查询（OWASP A01）。它不是登录态，不承载任何身份信息，也不得
+> 用于识别自然人。写入与读取使用同一套规范化规则（去空白 + 截断到 64 字符）。
 
 ### 1.3 CORS
 
@@ -181,6 +181,7 @@ X-Session-Token: <匿名会话标识>   # 问答与历史记录接口使用，�
 | `insufficient_evidence` | 依据不足 | `null` | 展示不确定提示与咨询建议，不编造流程 |
 | `conflict` | 知识存在冲突 | `null` | 不给确定结论，提示联系责任部门确认 |
 | `service_error` | 云服务异常 | `null` | 展示重试提示 |
+| `smalltalk` | 寒暄 / 引导对话 | `null` | 展示 `text` 普通聊天气泡，不展示卡片（v1.3 新增） |
 
 > **定稿约定：** 非 `answered` 状态下 `answer` 一律为 `null`（显式返回，不省略字段）；`sources` 一律为数组（可为空数组）。
 
@@ -191,6 +192,13 @@ X-Session-Token: <匿名会话标识>   # 问答与历史记录接口使用，�
 > 2. **拒答时可能回带来源**：若事项只有过期/草稿来源，状态为 `insufficient_evidence`、`answer` 为 `null`，
 >    但 `sources` 会回带这些来源（`status` 为 `expired` / `draft`），供前端提示「资料可能已失效」；
 >    完全无来源时 `sources` 为 `[]`。
+
+> **smalltalk 分类规则（v1.3 补录）：** 意图关键词未命中且不在「追问补参」链上时，后端先做分流：
+> ① 问候 / 寒暄 / 感谢 / 告别命中问候规则 → `smalltalk` **规则直答，不调模型**（零延迟）；
+> ② 接着上文正在讨论的事项继续追问（如「那费用呢」）→ **沿用该事项**走检索与生成，给出正式回答；
+> ③ 与事务沾边但表述不清 → `smalltalk` + 模型生成的引导语；
+> ④ 明确库外（食堂、选课等）→ `unsupported`（保持现状，不编造）。
+> **红线：`smalltalk` 的 `text` 不得包含政策、时间、地点、电话与办理流程**，只做寒暄与引导。
 
 ### 3.4 ConversationSummary（会话摘要）
 
@@ -241,6 +249,27 @@ X-Session-Token: <匿名会话标识>   # 问答与历史记录接口使用，�
 | `INCOMPLETE_STEPS` | 流程不完整 |
 | `OUTDATED_CONTENT` | 内容过期 |
 | `OTHER` | 其他 |
+
+### 3.7 ConversationMessage（消息明细，v1.3 新增）
+
+对应 `conversation_messages` 表（迁移 `0005`），一问一答成对落库，用于「查看历史 / 续接会话 / 多轮上下文」。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String(36) | 主键，uuid4 |
+| `conversation_id` | String(36) FK | 关联 `conversations.id`，级联删除 |
+| `role` | String(16) | `question` / `assistant` |
+| `content` | Text | question 轮 = 用户原文；assistant 轮 = 回复文本（answered 时为卡片 summary） |
+| `status` | String(24) | 该轮 §3.3 状态 |
+| `answer_json` | Text / JSON | assistant 轮的结构化卡片快照；非 answered 为 `NULL` |
+| `sources_json` | Text / JSON | assistant 轮的来源快照（仍由数据库映射生成，不采信模型输出） |
+| `created_at` | DateTime(tz) | 入库时间（单调递增，保证问 → 答的先后） |
+
+索引：`(conversation_id, created_at)`。
+
+> **动机：** `conversations` 是「一行 = 一个问题」的单轮摘要，AI 的回答从未落库；
+> 本表补齐后历史可查看（§4.7）、可续接（后续轮次沿用同一 `conversation_id`）、
+> 可作上下文（生成提示词注入最近 4 轮对话历史）。
 
 ---
 
@@ -377,7 +406,28 @@ Content-Type: application/json
 }
 ```
 
+**响应 200（`smalltalk`，v1.3 新增）：**
+
+```json
+{
+  "conversation_id": "demo-004",
+  "status": "smalltalk",
+  "intent": null,
+  "answer": null,
+  "sources": [],
+  "need_clarification": false,
+  "clarifying_question": null,
+  "text": "你是在问学生证补办吗？我可以帮你查办理流程。"
+}
+```
+
+> **`text`（v1.3 新增，可选）：** 纯文本对话内容，仅 `smalltalk` 状态非空，前端渲染为普通
+> 聊天气泡；其余状态省略或为 `null`。`smalltalk` 响应语义固定为
+> `answer=null`、`sources=[]`、`need_clarification=false`（见 §3.3）。
+
 **前端：** `sendChatMessage()`。**每轮必须携带上一轮返回的 `conversation_id`**；刷新页面视为新会话。
+从「最近记录」进入时先经 `GET /api/chat/messages` 加载历史（§4.7），
+后续轮次携带同一 `conversation_id` 即完成续接。
 
 > **会话归属校验（v1.1）：** 续写已存在的 `conversation_id` 时，后端校验该会话的
 > `session_token` 与请求头 `X-Session-Token` 是否一致；不一致一律按 404
@@ -501,62 +551,77 @@ GET /api/knowledge/sources
 
 ---
 
-### 4.7 规划中的变更（v1.3）——🚧 尚未实现，禁止作为联调依据
+### 4.7 查询会话消息明细（v1.3 新增）
 
-> 三项来源：2026-10-16 实测反馈（查看历史即重问、继续聊天开新会话、非事项问题机械拒绝）。
-> 完整根因、任务分解与验收标准见 **`docs/问题修复方案-对话体验三项-2026-10-16.md`**。
-> **实现完成后，请把本节内容移入正式章节并同步更新 §0 落地状态**，避免前后端按「未实现的契约」开发。
+```text
+GET /api/chat/messages?conversation_id=<会话id>
+X-Session-Token: <匿名会话标识>
+```
 
-**① 新增 `GET /api/conversations/{conversation_id}/messages`**
+**查询参数：**
 
-- 按会话读取消息明细（一问一答成对返回），用于「最近记录 → 查看/续接」；
-- 沿用 `X-Session-Token` 归属校验：会话不属于该标识时返回 404 `CONVERSATION_NOT_FOUND`（契约 §4.4）；
-- 响应建议：`{"messages": [{"role": "question"|"assistant", "content": "...", "status": "answered",
-  "answer": {…}|null, "sources": […], "created_at": "ISO8601"}], "total": N}`。
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `conversation_id` | string | 是 | 会话标识（`conversations.id`，即问答接口回传的 `conversation_id`） |
 
-**② 新增数据表 `conversation_messages`（迁移 `0005`）**
+**响应 200：**
+
+```json
+{
+  "messages": [
+    {
+      "role": "question",
+      "content": "学生证丢了怎么补办？",
+      "status": "answered",
+      "answer": null,
+      "sources": [],
+      "created_at": "2026-10-16T09:42:00+08:00"
+    },
+    {
+      "role": "assistant",
+      "content": "需要提交补办申请，审核通过后按通知领取新证。",
+      "status": "answered",
+      "answer": { "title": "学生证补办", "summary": "……", "steps": ["……"] },
+      "sources": [
+        { "title": "关于学生证补办工作的通知", "department": "学生工作处", "published_at": "2026-09-01", "url": "https://example.edu.cn/notice/001", "item_code": "S01", "status": "verified" }
+      ],
+      "created_at": "2026-10-16T09:42:03+08:00"
+    }
+  ],
+  "total": 2
+}
+```
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | String(36) | 主键，uuid4 |
-| `conversation_id` | String(36) FK | 关联 `conversations.id`，级联删除 |
-| `role` | String(16) | `question` / `assistant` |
-| `content` | Text | 用户原文（question 轮）/ 回复文本（assistant 轮） |
-| `status` | String(24) | 该轮 `AnswerStatus` |
-| `answer_json` | Text / JSON | assistant 轮的结构化卡片；`null` 表示非 answered |
-| `sources_json` | Text / JSON | assistant 轮的来源快照（不采信模型输出，仍由 DB 映射） |
-| `created_at` | DateTime(tz) | 入库时间 |
+| `messages` | ChatMessageItem[] | 按时间正序，一问一答成对；单次最多返回最近 200 条 |
+| `messages[].role` | string | `question` / `assistant` |
+| `messages[].content` | string | question 轮 = 用户原文；assistant 轮 = 回复文本（answered 时为卡片 summary） |
+| `messages[].status` | string | 该轮回答状态（§3.3 枚举） |
+| `messages[].answer` | AnswerCard \| null | assistant 且 answered 轮的结构化卡片快照，其余为 `null` |
+| `messages[].sources` | Source[] | assistant 轮的来源快照（仍由数据库映射生成，不采信模型输出） |
+| `messages[].created_at` | string | 入库时间，ISO 8601 带时区 |
+| `total` | integer | 本次返回的条数 |
 
-> 动机：当前 `conversations` 是「一行 = 一个问题」的单轮建模（`question` 单数字段、无消息明细），
-> **AI 回答内容从未落库**，因此既无法展示历史对话，也无法为后续轮次提供上下文。
+**归属校验（与 §4.3 一致）：** 会话不存在、或不属于当前 `X-Session-Token`
+→ 404 `CONVERSATION_NOT_FOUND`（契约 §4.4 匿名隔离）。会话存在但尚无消息
+（如升级前创建的旧会话）→ 200 + 空 `messages`，前端展示「暂无对话内容」。
 
-**③ 新增状态 `smalltalk` 与响应字段 `text`**
+**前端：** `fetchChatMessages(conversationId)`。用途：「最近记录 → 查看 / 续接」
+（入口语义见 §5 与 §6.1）与续接时的历史渲染。
 
-- 触发范围：问候 / 闲聊 / 与校园事务无关的日常对话，以及**与支持事项相关但表述不清**时的引导对话；
-- 响应语义：`status="smalltalk"`、`answer=null`、`sources=[]`、`need_clarification=false`，
-  新增可选字段 **`text`**（string，纯文本，前端渲染为普通聊天气泡而非卡片或错误提示）；
-- 引导示例：`text` = 「你是在问学生证补办吗？我可以帮你查办理流程。」；
-- 分类规则：命中事项 → 走现有六态；未命中且属问候/闲聊 → `smalltalk`（模型自然回复，**不涉及政策、不给流程**）；
-  未命中但听起来像校园事务 → `smalltalk` + 引导语；明确库外（如「食堂几点开门」）→ 仍 `unsupported`；
-- `conversations.result_status` 的 CheckConstraint 需同步加入该取值。
-
-**④ 前端入口语义（与 §5 同步）**
-
-| 入口 | 语义 |
-|---|---|
-| `/chat?q=<问题>` | **提问**：进入后自动发送 |
-| `/chat?id=<会话id>` | **查看 / 续接**：加载该会话消息历史，**不自动重发**；「继续咨询」据此续接同一会话 |
-| 记录页主点击 | 查看（`?id=`） |
-| 记录页「重新提问」 | 仍走 `?q=`（原「继续咨询」按钮，改名以明确会再次生成回答） |
+> 实现说明：接口形态按 `docs/问题修复方案-对话体验三项-2026-10-16.md` §2.6
+> 定为 `/api/chat/messages?conversation_id=`（与问答 POST 同路径、按方法区分），
+> 与 v1.3 规划稿中的路径式写法等价。
 
 ## 5. 页面与接口映射
 
 | 页面 | 前端文件 | 当前数据来源 | 目标接口 | 前端函数 |
 |---|---|---|---|---|
 | 首页 | `views/HomeView.vue` | ✅ 真实接口（事项 + 最近 3 条会话） | `GET /api/service-items`、`GET /api/conversations` | `fetchServiceItems()`、`fetchConversations()` |
-| 我的对话 | `views/ChatView.vue` | ✅ 真实接口（含六态渲染与反馈闭环） | `POST /api/chat/messages`、`POST /api/feedback` | `sendChatMessage()`、`submitFeedback()` |
+| 我的对话 | `views/ChatView.vue` | ✅ 真实接口（七态渲染与反馈闭环；`?id=` 加载历史可续接） | `POST /api/chat/messages`、`GET /api/chat/messages`、`POST /api/feedback` | `sendChatMessage()`、`fetchChatMessages()`、`submitFeedback()` |
 | 支持事项 | `views/ServicesView.vue` | ✅ 真实接口（分类取自后端 `category`） | `GET /api/service-items` | `fetchServiceItems()` |
-| 最近记录 | `views/HistoryView.vue` | ✅ 真实接口（状态由 `result_status` 推导） | `GET /api/conversations` | `fetchConversations()` |
+| 最近记录 | `views/HistoryView.vue` | ✅ 真实接口（状态由 `result_status` 推导；主点击查看、继续咨询续接，均走 `?id=`） | `GET /api/conversations` | `fetchConversations()` |
 | 使用帮助 | `views/HelpView.vue` | 组件内常量 | 无（FAQ 静态） | — |
 | 设置 | `views/SettingsView.vue` | `localStorage` | 无（偏好仅存本机） | — |
 
@@ -565,7 +630,10 @@ GET /api/knowledge/sources
 ## 6. 联调注意事项
 
 1. **会话衔接：** `ChatView` 每轮请求携带上一轮响应的 `conversation_id`；刷新页面视为新会话。
-2. **状态分支：** 前端需实现 §3.3 的 6 种 `status` 渲染；当前 `ChatView` 仅有纯文本气泡，未实现任何分支。
+   从「最近记录」进入（`/chat?id=<会话id>`）时先经 `GET /api/chat/messages` 加载历史，
+   后续轮次携带同一 `conversation_id` 即续接原会话（v1.3）。
+2. **状态分支：** 前端需实现 §3.3 的 7 种 `status` 渲染；`smalltalk` 渲染为普通聊天气泡（`text`），
+   其余状态见 `ChatView` 现有分支。
 3. **来源展示：** 渲染 `sources[].url` 前必须经 `isSafeSourceUrl()` 校验协议。
 4. **追问交互：** `need_clarification` 时把 `clarifying_question` 作为助手消息展示，用户下一条消息继续携带同一 `conversation_id`。
 5. **敏感信息：** 前后端均不传输、不记录学号 / 身份证号 / 账号密码；提示词已禁止索取敏感信息（实施方案第八章第 3 节）。
@@ -599,4 +667,4 @@ GET /api/knowledge/sources
 | 2026-10-07 | v1.0 | 定稿并修正 | ① `answer` 由 string 改为结构化对象（对齐实施方案 8.1）② 补齐 `intent` / `need_clarification` 字段 ③ 统一错误结构与业务错误码（原「待确认」Q1）④ 定稿 `reason_code` 枚举（Q5）⑤ 定稿 `answer` 空值语义（Q3）⑥ 定稿「待继续/已完成」推导规则（Q4）⑦ 定稿 CORS 策略（Q6）⑧ 新增 §3.5 标识符规范与 §0 落地状态 ⑨ 明确 §4.4 匿名隔离与 §6.6 提示词注入要求 |
 | 2026-10-16 | v1.1 | 补录与落地说明 | ① §1.2 补录 `X-Session-Token` 请求头（后端 `GET /api/conversations` 已按其隔离，前端此前未发送，本次对齐）② §3.1 的 `icon` / `tone` / `prompt` 由「选返」转为**实际返回**（`service_items` 新增同名列，为空时回退后端缺省表）③ 明确 `POST /api/chat/messages` 的错误映射：传输层失败 503 `UPSTREAM_TIMEOUT` / `UPSTREAM_ERROR`、上游限流 429 `RATE_LIMITED`、模型输出不可用 200 `status=service_error` ④ 明确生成依据口径：仅「已核验 + 有效期内 + 有正文」的来源可产出 `answered`；过期/草稿一律拒答（`insufficient_evidence`，并在 `sources` 中回带这些来源供前端提示「资料可能已失效」）；存在冲突来源时返回 `conflict` |
 | 2026-10-16 | v1.2 | 六页接线与范围收敛 | ① §0 落地状态更新为「后端已实现 + 页面已接线」② §5 六个页面的数据来源改为真实接口（`home.mock.ts` 已移除）③ §3.5 前端演示项 `network`（校园网与账号）**移出支持事项列表**（不在 S01–S08 范围内）④ 补充实现约定：记录页「待继续/已完成」由 `result_status` 推导（§3.4），事项编码→UI key 映射见 §3.5，前端 `src/data/service-codes.ts` 与本表保持一致 |
-| 2026-10-16 | v1.3（🚧 规划中，未实现） | 对话体验三项修复 | ① 规划 `GET /api/conversations/{conversation_id}/messages` 与新增表 `conversation_messages`（AI 回答与来源快照落库，历史可查看、可续接）② 规划新状态 `smalltalk` 与 `ChatResponse.text`（问候/闲聊/引导对话不再机械拒绝）③ 明确前端入口语义：`/chat?q=` 提问、`/chat?id=` 查看/续接。详见 `docs/问题修复方案-对话体验三项-2026-10-16.md` |
+| 2026-10-16 | v1.3 | 对话体验三项修复落地 | ① `GET /api/chat/messages` 上线，新增表 `conversation_messages`（迁移 0005）：AI 回答与来源快照落库，历史可查看、可续接，生成提示词注入最近 4 轮对话历史 ② 新状态 `smalltalk` 与响应字段 `text` 上线（迁移 0006）：问候/寒暄规则直答，接着上文事项的追问沿用该事项给出回答，表述不清给引导语，明确库外仍 `unsupported`；`smalltalk` 文案不得含政策内容 ③ 前端入口语义：`/chat?q=` 提问、`/chat?id=` 查看/续接（记录页主点击与「继续咨询」均走 `?id=`，查看历史不再重新提问）。详见 `docs/问题修复方案-对话体验三项-2026-10-16.md` |

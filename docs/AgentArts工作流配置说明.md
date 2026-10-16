@@ -24,7 +24,9 @@
    ▼
 [意图识别] 大模型节点：输出 intent ∈ {S01…S08, unknown}
    │
-   ├─ unknown ──────────────▶ [结束] unsupported（暂不支持）
+   ├─ unknown ──────────────▶ 模型三分类（寒暄引导 / 明确库外 / 事项追问）
+   │                            ├─ smalltalk ─────▶ [结束] smalltalk（寒暄 / 引导，text 纯文本）
+   │                            └─ unsupported ──▶ [结束] unsupported（暂不支持）
    ▼
 [知识检索] 知识库节点：按事项检索，top_k = 5，输出 snippets[]
    │
@@ -83,17 +85,25 @@
 - S08 毕业手续：毕业、离校、学位证、毕业证
 
 规则：
-1. 只输出 {"intent": "Sxx"}，不要输出解释文字或 Markdown 代码块；
-2. 同时命中多个事项或无法判断时，输出 {"intent": "unknown"}；
-3. 同时命中多个事项且能从问题中区分时，正常输出对应事项；
+1. 命中事项时只输出 {"intent": "Sxx"}，不要输出解释文字或 Markdown 代码块；
+2. 同时命中多个事项或无法判断归属时，进一步三分类（v1.1 同步对话体验三项修复）：
+   a. 寒暄、感谢、告别等与校园事务无关的对话，或与事务沾边但表述不清、需要引导的话
+      → 输出 {"status": "smalltalk", "text": "一句自然的回复"}；
+   b. 明确询问上述八项之外的校园事务（如食堂、选课、上网）→ 输出 {"status": "unsupported"}；
+   c. 上文正在讨论某事项且本句是在追问该事项（如「那费用呢」）→ 沿用该事项输出 {"intent": "Sxx"}；
+3. smalltalk 的 text 不得包含办理流程、所需材料、办理地点、办理时间、联系电话、截止日期、费用金额等政策内容，只做寒暄与引导；
 4. 只依据问题文本判断，不要编造。
 ```
 
-**输出规范**：`{"intent": "S01"}` ～ `{"intent": "S08"}` 或 `{"intent": "unknown"}`。
+**输出规范**：`{"intent": "S01"}` ～ `{"intent": "S08"}`（命中事项）；未命中事项时 `{"status": "smalltalk", "text": "…"}` 或 `{"status": "unsupported"}`。
 
-**分支**：`intent == "unknown"` → 结束节点输出 `{"status": "unsupported"}`（暂不支持，由后端提示用户换一种问法或联系责任部门）。
+**分支**：
+- `intent ∈ {S01…S08}` → 知识检索节点；
+- `status == "smalltalk"` → 结束节点输出 `{"status": "smalltalk", "text": "…"}`（寒暄 / 引导对话，前端渲染为普通聊天气泡）；
+- `status == "unsupported"` → 结束节点输出 `{"status": "unsupported"}`（暂不支持，由后端提示用户换一种问法或联系责任部门）。
 
-> 关键词表与后端 `app/services/intent.py` 的 `INTENT_KEYWORDS` 一致（后端规则路径为降级方案，两者输出同构）。
+> 关键词表与后端 `app/services/intent.py` 的 `INTENT_KEYWORDS` 一致；smalltalk 三分类与后端
+> `app/services/smalltalk.py` 的 `classify` 同构（后端规则路径为降级方案，两者输出同构）。
 
 ### 3.3 知识检索节点（知识库节点）
 
@@ -166,7 +176,7 @@
 
 | 输出变量 | 类型 | 说明 |
 |---|---|---|
-| answer | string | 统一 JSON 文本（answered / insufficient_evidence / need_clarification / unsupported 四种状态之一） |
+| answer | string | 统一 JSON 文本（answered / insufficient_evidence / need_clarification / unsupported / smalltalk 五种状态之一） |
 
 ---
 
@@ -190,15 +200,24 @@
 
 ### 4.3 暂不支持分支
 
-- **触发条件**：意图识别输出 unknown（知识库外问题或无法归属事项）。
+- **触发条件**：意图识别三分类判定为「明确库外」（知识库外问题，如食堂、选课、上网）。
 - **输出**：`{"status": "unsupported"}`。
 - **行为约定**：不编造答案；后端提示用户该问题暂不在服务范围内。
+
+### 4.4 寒暄引导分支（smalltalk，v1.1 新增）
+
+- **触发条件**：意图识别三分类判定为 smalltalk（寒暄 / 感谢 / 告别，或与事务沾边但表述不清需要引导）。
+- **输出**：`{"status": "smalltalk", "text": "…"}`。
+- **行为约定**：`text` 只做寒暄与引导，**不得包含政策、时间、地点、电话与办理流程**；
+  后端按普通聊天气泡渲染（契约 §3.3 / §4.3），不展示办事卡片与来源。
+- **降级口径**：问候类消息由后端 `app/services/smalltalk.py` 的规则表直答（不调模型）；
+  工作流链路启用后，规则命中仍优先（零延迟零成本），未命中才走本节点的模型分类。
 
 ---
 
 ## 5. 统一 JSON 输出规范
 
-工作流「结束节点」只输出**一个 JSON 对象**，四种状态：
+工作流「结束节点」只输出**一个 JSON 对象**，五种状态：
 
 | status | 结构 | 对应前端/契约状态 |
 |---|---|---|
@@ -206,6 +225,7 @@
 | insufficient_evidence | `{"status": "insufficient_evidence"}` | insufficient_evidence（拒答） |
 | need_clarification | `{"status": "need_clarification", "clarifying_question": "…"}` | need_clarification（追问） |
 | unsupported | `{"status": "unsupported"}` | unsupported（暂不支持） |
+| smalltalk | `{"status": "smalltalk", "text": "…"}` | smalltalk（寒暄 / 引导，普通气泡） |
 
 **与后端契约 §3.3 的关系**：工作流输出的 JSON 是「答案本体」；后端在应答外层再包装 `status / intent / sources / conversation_id`（sources 由后端从数据库映射，不采信模型输出——契约 §1.2）。answered 卡片字段与 `AnswerCard` 一一对应，后端 `_parse_answer` 可直接解析。
 
@@ -264,11 +284,15 @@
 | 18 | 库外 | 图书馆借书超期怎么办？ | unsupported |
 | 19 | 库外 | 怎么选课？ | unsupported |
 | 20 | 库外 | 明年学校一定会新增什么专业？ | unsupported |
+| 21 | 寒暄 | 你好 | smalltalk（规则直答，不调模型，<1s） |
+| 22 | 模糊 | 我想办点事 | smalltalk + 引导语（不含政策内容） |
+| 23 | 追问 | （S01 已回答后）那费用呢？ | answered（沿用 S01 给出回答，不再 unsupported） |
 
 **验收标准**（实施方案第 4 周）：
-- 20 条问题中至少 18 条识别到正确事项（≥90%）；
+- 23 条问题中至少 21 条达到期望输出（≥90%）；
 - 正式答案能够显示正确来源（标题、部门、发布日期与知识条目一致）；
-- 知识库外问题不生成虚假流程。
+- 知识库外问题不生成虚假流程；
+- smalltalk 文案不含政策 / 流程 / 地点 / 电话等内容。
 
 **执行记录**：每条测试记录「意图、召回文档、输出、失败原因」四列（对应知识库文档附录的更全量问法集：每事项 5 种问法）。
 
@@ -279,5 +303,6 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-10-16 | 初版：六节点 + 拒答/追问/暂不支持分支 + 统一 JSON 输出规范 + 后端适配层接线说明 + 20 条全链路测试方案 |
+| v1.1 | 2026-10-16 | 同步对话体验三项修复：意图识别节点 unknown 分支改为模型三分类，新增 smalltalk 出口（寒暄 / 引导，`text` 纯文本，系统提示词加入「不输出政策」约束）；追问沿用事项给出回答；测试集扩充至 23 条 |
 
 > 工作流在控制台的每次保存/发布，建议在此追加一行（版本号、日期、变更点），与知识版本 v2026.10 配套管理。

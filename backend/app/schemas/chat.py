@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 from app.models.conversation import AnswerStatus
+from app.schemas.common import UtcDateTime
 
 MAX_MESSAGE_LENGTH = 200
 
@@ -75,6 +76,30 @@ class ChatMessageResponse(BaseModel):
     sources: list[ChatSource]
     need_clarification: bool
     clarifying_question: str | None
+    # v1.3 新增：smalltalk 状态的纯文本对话内容（寒暄 / 引导语），其余状态为 null
+    text: str | None = None
+
+
+class ChatMessageItem(BaseModel):
+    """消息明细（v1.3 新增，GET /api/chat/messages 的数组元素）。
+
+    question 轮 = 用户原文；assistant 轮 = 回复文本（answered 时为卡片 summary）。
+    answer / sources 仅 assistant 轮携带，question 轮恒为空。
+    """
+
+    role: Literal["question", "assistant"]
+    content: str
+    status: AnswerStatus
+    answer: AnswerCard | None = None
+    sources: list[ChatSource] = Field(default_factory=list)
+    created_at: UtcDateTime
+
+
+class ChatMessagesResponse(BaseModel):
+    """GET /api/chat/messages 的响应（v1.3 新增）。"""
+
+    messages: list[ChatMessageItem]
+    total: int = Field(ge=0)
 
 
 class ChatOutcomeKind(BaseModel):

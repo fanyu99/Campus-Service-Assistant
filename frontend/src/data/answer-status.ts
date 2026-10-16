@@ -8,7 +8,7 @@ import type { AnswerStatus, ConversationSummary } from '../api/client'
  * 与接口错误提示都只应有一份定义。
  */
 
-/** 契约 §3.3 六态的状态文案（用于记录页标签、调试展示） */
+/** 契约 §3.3 状态文案（用于记录页标签、调试展示；smalltalk 为 v1.3 新增） */
 export const ANSWER_STATUS_LABEL: Record<AnswerStatus, string> = {
   answered: '已回答',
   need_clarification: '待继续',
@@ -16,6 +16,7 @@ export const ANSWER_STATUS_LABEL: Record<AnswerStatus, string> = {
   insufficient_evidence: '依据不足',
   conflict: '资料冲突',
   service_error: '服务异常',
+  smalltalk: '对话',
 }
 
 /** 契约 §3.4 定稿：need_clarification → 待继续；其余 → 已完成 */
@@ -38,6 +39,8 @@ export function conversationDetail(resultStatus: AnswerStatus): string {
       return '资料来源存在冲突，需向责任部门确认'
     case 'service_error':
       return '智能问答服务异常，可重试'
+    case 'smalltalk':
+      return '日常对话，未涉及具体事项'
   }
 }
 

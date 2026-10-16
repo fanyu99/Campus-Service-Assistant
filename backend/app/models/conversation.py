@@ -1,11 +1,15 @@
 import enum
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, enum_values, utc_now
+
+if TYPE_CHECKING:
+    from app.models.conversation_messages import ConversationMessage
 
 
 class AnswerStatus(str, enum.Enum):
@@ -15,6 +19,7 @@ class AnswerStatus(str, enum.Enum):
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
     CONFLICT = "conflict"
     SERVICE_ERROR = "service_error"
+    SMALLTALK = "smalltalk"
 
 
 class Conversation(Base):
@@ -22,7 +27,7 @@ class Conversation(Base):
     __table_args__ = (
         CheckConstraint(
             "result_status IN ('answered', 'need_clarification', 'unsupported', "
-            "'insufficient_evidence', 'conflict', 'service_error')",
+            "'insufficient_evidence', 'conflict', 'service_error', 'smalltalk')",
             name="result_status_values",
         ),
     )
@@ -46,3 +51,10 @@ class Conversation(Base):
     )
 
     feedbacks: Mapped[list["Feedback"]] = relationship(back_populates="conversation")
+    # 消息明细（迁移 0005）：删除会话时连带删除，避免 ORM 去置空非空外键
+    messages: Mapped[list["ConversationMessage"]] = relationship(
+        "ConversationMessage",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="ConversationMessage.created_at",
+    )

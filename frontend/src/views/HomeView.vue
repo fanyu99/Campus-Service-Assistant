@@ -115,10 +115,15 @@ function fill(text: string) {
   })
 }
 
-/** 跳转到问答页；传入问题文本时通过 query 携带 */
+/** 跳转到问答页；传入问题文本时通过 query 携带（提问语义：进入后自动发送） */
 function goChat(text?: string) {
   const q = text?.trim()
   router.push({ name: 'chat', query: q ? { q } : undefined })
+}
+
+/** 查看 / 续接历史会话（v1.3）：带会话 id 跳问答页，加载历史而非重新提问 */
+function viewConversation(id: string) {
+  router.push({ name: 'chat', query: { id } })
 }
 
 function submitQuestion() {
@@ -238,7 +243,7 @@ try {
           <div class="panel-head"><h2>最近记录</h2><button type="button" class="link-btn" data-od-id="view-all-history" @click="router.push({ name: 'history' })">全部记录</button></div>
           <ul class="list">
             <li v-for="item in visibleRecent" :key="item.id">
-              <button type="button" class="recent-row" :data-od-id="item.id" @mouseenter="setHover(hoverMessages.recent)" @mouseleave="clearHover" @focus="setHover(hoverMessages.recent)" @blur="clearHover" @click="goChat(item.question)">
+              <button type="button" class="recent-row" :data-od-id="item.id" @mouseenter="setHover(hoverMessages.recent)" @mouseleave="clearHover" @focus="setHover(hoverMessages.recent)" @blur="clearHover" @click="viewConversation(item.id)">
                 <span class="recent-dot" aria-hidden="true"></span>
                 <span class="recent-body"><strong>{{ item.question }}</strong><span>{{ item.time }}<i>·</i>{{ labelForCode(item.itemCode) }}</span></span>
                 <svg class="i row-chev" aria-hidden="true"><use href="#i-chev"/></svg>

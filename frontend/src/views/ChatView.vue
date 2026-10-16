@@ -2,9 +2,9 @@
 
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ApiError, sendChatMessage } from '../api/client'
-import type { ChatResponse } from '../api/client'
-import { describeApiError } from '../data/answer-status'
+import { ApiError, fetchChatMessages, sendChatMessage } from '../api/client'
+import type { ChatMessageItem, ChatResponse } from '../api/client'
+import { describeApiError, formatDateTime } from '../data/answer-status'
 import { useProfile, avatarInitial } from '../composables/useProfile'
 import AnimatedButton from '../components/AnimatedButton.vue'
 import ThemeToggleButton from '../components/ThemeToggleButton.vue'
@@ -36,11 +36,14 @@ const messageList = ref<HTMLElement | null>(null)
 /** 会话标识：首轮为 null，后端创建后回传，后续轮次原样带回（契约 §4.3） */
 const conversationId = ref<string | null>(null)
 const messages = ref<ChatMessage[]>([])
+/** ?id= 加载完成但历史为空（升级前创建的旧会话）时的空态文案开关 */
+const historyEmpty = ref(false)
 let nextMessageId = 1
 let lastSubmitted = ''
 
 
 const initialQuestion = typeof route.query.q === 'string' ? route.query.q.trim() : ''
+const initialId = typeof route.query.id === 'string' ? route.query.id.trim() : ''
 
 function autoGrow() {
   const el = inputEl.value
@@ -149,6 +152,47 @@ function goServices(): void {
   router.push({ name: 'services' })
 }
 
+/** 消息明细 → 视图模型（question 轮=用户原文；assistant 轮=结构化响应） */
+function toHistoryMessage(item: ChatMessageItem, conversation: string): ChatMessage {
+  const time = formatDateTime(item.created_at)
+  if (item.role === 'question') {
+    return { id: nextMessageId++, role: 'user', time, text: item.content }
+  }
+  const response: ChatResponse = {
+    conversation_id: conversation,
+    status: item.status,
+    intent: null,
+    answer: item.answer,
+    sources: item.sources,
+    need_clarification: item.status === 'need_clarification',
+    clarifying_question: item.status === 'need_clarification' ? item.content : null,
+    text: item.status === 'smalltalk' ? item.content : undefined,
+  }
+  return { id: nextMessageId++, role: 'assistant', time, response }
+}
+
+/**
+ * 查看 / 续接历史会话（?id=，v1.3 新增）。
+ * 拉取消息明细渲染为消息列表，并设置 conversationId —— 后续轮次自动续接
+ * 同一会话（契约 §4.7 前端入口语义）。加载失败时保持空会话态，用户可
+ * 直接在下方提问开启新会话。
+ */
+async function loadHistory(conversation: string): Promise<void> {
+  clearStatus()
+  historyEmpty.value = false
+  try {
+    const data = await fetchChatMessages(conversation)
+    conversationId.value = conversation
+    historyEmpty.value = data.messages.length === 0
+    messages.value = data.messages.map((item) => toHistoryMessage(item, conversation))
+    scrollToLatest()
+  } catch (error) {
+    conversationId.value = null
+    status.value = describeApiError(error)
+    isError.value = true
+  }
+}
+
 /** 依据不足时，区分「完全没有资料」与「有资料但已过期/未核验」两种提示 */
 function evidenceTitle(response: ChatResponse): string {
   return response.sources.length
@@ -162,16 +206,29 @@ function evidenceDescription(response: ChatResponse): string {
     : '这个问题我暂时没有可依据的官方资料，建议咨询责任部门，或换一种问法。'
 }
 
-/* 从首页/支持事项带问题跳转过来时自动提问；同一问题不重复发送 */
-if (initialQuestion) {
+/* 入口语义（契约 §4.7）：?id= → 查看 / 续接（拉历史，不自动重发）；
+   ?q= → 提问（进入后自动发送）。两者同时出现时以 ?id= 为准。 */
+if (initialId) {
+  void loadHistory(initialId)
+} else if (initialQuestion) {
   void send(initialQuestion)
 }
 
 watch(
-  () => route.query.q,
-  (value) => {
-    const text = typeof value === 'string' ? value.trim() : ''
+  () => [route.query.q, route.query.id] as const,
+  ([q, id]) => {
+    const idText = typeof id === 'string' ? id.trim() : ''
+    if (idText) {
+      void loadHistory(idText)
+      return
+    }
+    const text = typeof q === 'string' ? q.trim() : ''
     if (!text || text === lastSubmitted) return
+    /* ?q= 语义是新提问：清空当前展示，另起会话再发送，
+       避免把新问题续进正在查看的历史会话里 */
+    messages.value = []
+    conversationId.value = null
+    historyEmpty.value = false
     void send(text)
   },
 )
@@ -203,8 +260,14 @@ watch(
 
         <div ref="messageList" class="message-list" role="log" aria-live="polite" data-od-id="message-list">
           <div v-if="!messages.length" class="empty-state" data-od-id="empty-conversation">
-            <p>还没有对话</p>
-            <p>在下方输入框写下问题，也可以直接选一个示例</p>
+            <template v-if="historyEmpty">
+              <p>这条记录还没有对话内容</p>
+              <p>直接在下方输入问题，我会接着这条记录继续回答。</p>
+            </template>
+            <template v-else>
+              <p>还没有对话</p>
+              <p>在下方输入框写下问题，也可以直接选一个示例</p>
+            </template>
           </div>
 
           <article
@@ -235,6 +298,11 @@ watch(
                 <template v-else-if="message.response.status === 'need_clarification'">
                   <p class="message-bubble">{{ message.response.clarifying_question ?? '能再多说一点吗？' }}</p>
                   <p class="follow-hint">补充信息后直接发送，我会接着这次对话回答。</p>
+                </template>
+
+                <!-- smalltalk：寒暄 / 引导对话，渲染为普通气泡（v1.3 新增，不再机械拒绝） -->
+                <template v-else-if="message.response.status === 'smalltalk'">
+                  <p class="message-bubble">{{ message.response.text ?? '我在呢，有什么想了解的都可以问我。' }}</p>
                 </template>
 
                 <!-- unsupported：给出支持范围，不编造 -->

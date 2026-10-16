@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.errors import BusinessError
@@ -11,7 +11,12 @@ from app.core.rate_limit import (
 )
 from app.core.sanitize import reject_sensitive_or_injected, sanitize_message
 from app.db.session import get_db
-from app.schemas.chat import ChatMessageRequest, ChatMessageResponse
+from app.schemas.chat import (
+    ChatMessageRequest,
+    ChatMessageResponse,
+    ChatMessagesResponse,
+)
+from app.services.chat_messages import list_messages
 from app.services.chat_service import handle_chat_message
 from app.services.fallback_service import RATE_LIMITED_MESSAGE, to_business_error
 from app.services.llm_client import LLMClient, LLMError, get_llm_client
@@ -42,3 +47,21 @@ def post_chat_message(
     except LLMError as exc:
         # 传输层失败转成契约错误码；输出不可用的降级在编排层内完成
         raise to_business_error(exc) from exc
+
+
+@router.get("/chat/messages", response_model=ChatMessagesResponse)
+def get_chat_messages(
+    conversation_id: Annotated[str, Query(min_length=1)],
+    x_session_token: Annotated[str | None, Header(alias="X-Session-Token")] = None,
+    db: Session = Depends(get_db),
+) -> ChatMessagesResponse:
+    """按会话读取消息明细（v1.3 新增）：历史可查看、可续接。
+
+    归属校验与 POST 一致：会话不存在、或不属于当前匿名标识
+    → 404 ``CONVERSATION_NOT_FOUND``（契约 §4.4 匿名隔离）。
+    该会话存在但尚无消息时返回 200 + 空列表（如升级前创建的旧会话）。
+    """
+    items = list_messages(db, conversation_id, x_session_token)
+    if items is None:
+        raise BusinessError(404, "CONVERSATION_NOT_FOUND", "会话不存在或已过期")
+    return ChatMessagesResponse(messages=items, total=len(items))

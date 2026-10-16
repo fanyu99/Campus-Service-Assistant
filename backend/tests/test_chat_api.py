@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from app.models import (
     AnswerStatus,
     Conversation,
+    ConversationMessage,
     KnowledgeStatus,
     ServiceItem,
     SourceDocument,
@@ -145,8 +146,13 @@ def test_continuation_reuses_same_conversation(db_client, db_session):
     assert db_session.scalar(select(func.count()).select_from(Conversation)) == 1
     conversation = db_session.scalars(select(Conversation)).one()
     assert conversation.question == "学生证补办需要准备照片吗？"
-    # 多轮上下文（上一轮问题）被带进第二轮提示词
-    assert "上一轮问题：学生证丢了怎么补办？" in llm.calls[-1][1]
+    # 多轮上下文（对话历史）被带进第二轮提示词：一问一答成对
+    prompt = llm.calls[-1][1]
+    assert "【对话历史】" in prompt
+    assert "学生：学生证丢了怎么补办？" in prompt
+    assert "助手：提交补办申请后按通知领取新证。" in prompt
+    # 两轮各落两条消息（用户问题 + 助手结果），历史可查看、可续接
+    assert db_session.scalar(select(func.count()).select_from(ConversationMessage)) == 4
 
 
 def test_clarifying_answer_continues_previous_intent(db_client, db_session):

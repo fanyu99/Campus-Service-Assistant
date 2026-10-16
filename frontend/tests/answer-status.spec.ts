@@ -20,6 +20,7 @@ describe('conversationStatusLabel（契约 §3.4 定稿规则）', () => {
       'insufficient_evidence',
       'conflict',
       'service_error',
+      'smalltalk',
     ] as AnswerStatus[]) {
       expect(conversationStatusLabel(status)).toBe('已完成')
     }
@@ -27,7 +28,7 @@ describe('conversationStatusLabel（契约 §3.4 定稿规则）', () => {
 })
 
 describe('状态文案', () => {
-  it('六态都有文案与说明', () => {
+  it('各态都有文案与说明（含 v1.3 新增 smalltalk）', () => {
     const statuses: AnswerStatus[] = [
       'answered',
       'need_clarification',
@@ -35,11 +36,13 @@ describe('状态文案', () => {
       'insufficient_evidence',
       'conflict',
       'service_error',
+      'smalltalk',
     ]
     for (const status of statuses) {
       expect(ANSWER_STATUS_LABEL[status]).toBeTruthy()
       expect(conversationDetail(status)).toBeTruthy()
     }
+    expect(ANSWER_STATUS_LABEL.smalltalk).toBe('对话')
   })
 })
 
