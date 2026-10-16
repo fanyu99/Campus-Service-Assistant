@@ -14,6 +14,21 @@
 | 仓库根 `.env` | 不入库；从 `.env.example` 复制后填写，见第 2 节 |
 | 端口 | 80（前端）、127.0.0.1:3306（数据库，仅本机回环） |
 
+> **国内网络注意（实测 2026-10-16）**：Docker Hub 常不可直连，`docker compose up --build` 会卡在
+> `registry-1.docker.io` / `auth.docker.io`。两种可行做法：① 挂 VPN 后直接构建；② 先手动拉取四个基础镜像
+> 再构建（构建期 `FROM` 就不必再走仓库）：
+> ```powershell
+> docker pull node:20-alpine, python:3.12-slim, nginx:1.27-alpine, mysql:8   # 实际逐条执行
+> docker compose up -d --build
+> ```
+> 若已配置镜像源，可在 Docker Desktop → Settings → Docker Engine 的 `registry-mirrors` 中填写。
+> `docker compose config` 只校验语法，**不能**发现网络问题——必须真正 `up` 一次才算验证部署。
+
+> **一键部署已验证（2026-10-16）**：镜像构建 → 三容器启动（db / backend / frontend 全部 healthy）→
+> `alembic upgrade head` 在 MySQL 8 上执行成功（字符集 utf8mb4）→ 知识导入（宿主机对 127.0.0.1:3306）
+> → 经 nginx(80) 全链路验证：8 项事项全部 `answered`（容器内调通真实 MaaS 模型）、六态/多轮/记录/
+> 反馈/知识来源/限流/敏感数据拒绝均通过。
+
 ## 2. 环境变量
 
 在仓库根目录执行 `Copy-Item .env.example .env`，然后填写：
