@@ -1,13 +1,17 @@
 """大模型客户端适配层。
 
-当前实现对接华为云 MaaS（ModelArts Studio）模型服务——OpenAI 兼容协议：
+当前实现：
+- ``AgentArtsClient``（app.services.agentarts_client）：华为云 AgentArts（智果）
+  问答工作流，配置 AGENTARTS_API_KEY + AGENTARTS_AGENT_ID 后优先使用，
+  由工作流承担「意图 → 检索 → 判断 → 生成」全链路；
+- ``MaaSClient``：华为云 MaaS（ModelArts Studio）模型服务——OpenAI 兼容协议：
     POST {base_url}/chat/completions
     Authorization: Bearer <API Key>
     {"model": "...", "messages": [{"role": "system"|"user", "content": "..."}]}
+- ``MockLLMClient`` / ``UnavailableLLMClient``：本地替身与生产明确失败占位。
 
 设计要点：
-- 只依赖 ``LLMClient`` 协议，真实实现（MaaSClient）与替身实现（MockLLMClient）可互换；
-  后续切换到 AgentArts 工作流时，只需新增一个实现该协议的客户端，编排层零改动。
+- 只依赖 ``LLMClient`` 协议，真实实现与替身实现可互换，编排层零改动；
 - 传输层异常统一转成 LLMError 家族，由 api 层映射为契约错误码（见 fallback_service）。
 """
 
@@ -179,12 +183,28 @@ class UnavailableLLMClient:
 
 
 def get_llm_client() -> LLMClient:
-    """依赖注入入口：配置了 MaaS Key 走真实调用；本地环境退回替身；生产环境明确失败。
+    """依赖注入入口，按优先级分流：
+    1. 配置了 AgentArts（api_key + agent_id）→ AgentArts 工作流（项目目标形态）；
+    2. 配置了 MaaS Key → MaaSClient 直连模型；
+    3. 本地环境 → 替身实现（仅联调用）；
+    4. 生产环境均未配置 → 明确失败（503）。
 
     保持无参签名，便于直接作为 FastAPI 依赖使用；测试用
     ``dependency_overrides[get_llm_client]`` 注入确定性替身。
     """
     settings = get_settings()
+    if settings.agentarts_api_key.strip() and settings.agentarts_agent_id.strip():
+        # 延迟导入：agentarts_client 依赖本模块的异常类型，避免循环导入
+        from app.services.agentarts_client import AgentArtsClient
+
+        return AgentArtsClient(
+            api_key=settings.agentarts_api_key,
+            agent_id=settings.agentarts_agent_id,
+            base_url=settings.agentarts_base_url,
+            connect_timeout=settings.agentarts_connect_timeout,
+            read_timeout=settings.agentarts_read_timeout,
+            max_attempts=settings.agentarts_max_attempts,
+        )
     if settings.maas_api_key.strip():
         return MaaSClient(
             api_key=settings.maas_api_key,
@@ -196,8 +216,9 @@ def get_llm_client() -> LLMClient:
         )
     if settings.app_env == "local":
         logger.warning(
-            "未配置 MAAS_API_KEY：问答链路使用本地替身实现，输出仅用于联调，不代表真实模型结果"
+            "未配置 AGENTARTS_API_KEY / MAAS_API_KEY：问答链路使用本地替身实现，"
+            "输出仅用于联调，不代表真实模型结果"
         )
         return MockLLMClient()
-    logger.error("未配置 MAAS_API_KEY 且当前环境非 local：问答接口将返回 503")
-    return UnavailableLLMClient("未配置模型服务（MAAS_API_KEY 为空）")
+    logger.error("未配置模型服务且当前环境非 local：问答接口将返回 503")
+    return UnavailableLLMClient("未配置模型服务（AGENTARTS_API_KEY / MAAS_API_KEY 为空）")

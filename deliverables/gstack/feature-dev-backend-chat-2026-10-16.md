@@ -206,6 +206,53 @@
 
 ---
 
+## 🔄 补记二（同日 15:17 起）：F3 限流与清洗、F4 知识来源接口、F6 Docker 化
+
+**同期由用户完成的 AgentArts 集成（本提交一并纳入）**：`backend/app/services/agentarts_client.py`
+（实现 `LLMClient` 协议：超时/连接异常按 `max_attempts` 重试，4xx 与 429 不重试，输出结构容错解析）、
+`get_llm_client()` 优先级分流（**AgentArts（key + agent_id）→ MaaS → 本地替身 → 生产明确 503**）、
+`docs/AgentArts工作流配置说明.md`（六节点配置 + 统一 JSON 输出规范 + 20 条全链路测试方案）、
+`docs/AgentArts知识库文档-学生事务核验版.md`（与 `scripts/real_knowledge.py` 同源），
+新增 `backend/tests/test_agentarts_client.py`。当前接线为**生成委托模式**：后端保留规则意图识别与
+MySQL 可信检索，把系统提示词与知识片段交给工作流生成。
+
+### F3 · 限流 + 输入清洗 + 输出白名单（P0，契约 §6.6 / §6.7）
+
+- `app/core/rate_limit.py`：进程内滑动窗口限流（时钟可注入，便于测试）；限流器**随应用实例创建**，
+  测试可为每个实例单独设阈值；计数键为匿名会话标识（缺失时退化为主机地址）；超限 → 429 `RATE_LIMITED`。
+- `app/core/sanitize.py`：控制字符清洗（保留 `\n\t`）；敏感数据**取值**（身份证 / 手机号 / 16–19 位卡号）
+  与凭据赋值一律 400 拒绝；提示词注入 8 条模式（中英双语、忽略大小写）拒绝；
+  `is_safe_source_url()` 提供来源链接白名单。
+- **接入顺序**：先限流（保护 LLM / 智能体成本），再清洗，最后进入编排层。
+- 检索侧接入链接白名单：不可引用的来源既不能作为生成依据，也不会出现在 `sources` 里。
+- **误伤防护**：只对「敏感数据的取值」判罚，不对「提到敏感字段的合法提问」判罚
+  （「补办学生证需要身份证号吗？」必须放行，已加断言守住）。英文注入模式曾因大小写敏感漏判
+  （`Ignore all previous instructions` 未被拦截），由测试发现并加 `re.IGNORECASE` 修正。
+
+### F4 · `GET /api/knowledge/sources`（P1，契约 §4.6）
+
+- 新增 `app/schemas/knowledge.py` + `app/services/knowledge.py` + `app/api/knowledge.py`：
+  按 `status` / `item_code` 过滤，`publish_date` 倒序；`id` / `service_item_id` 按契约示例以字符串返回；
+  非法 `status` 由枚举校验直接 422；空库返回 `{sources: [], total: 0}`；纯只读、无 PII。
+
+### F6 · Docker 化与 compose 启用（P1）
+
+- 新增 `backend/Dockerfile`（`python:3.12-slim`、非 root、依赖分层缓存、内置 `HEALTHCHECK`）与 `backend/.dockerignore`。
+- `docker-compose.yml` 由「注释态」改为可用：backend 启动时 `alembic upgrade head`（带等待数据库重试）
+  → 启动 uvicorn；`depends_on: service_healthy`（db 用 `mysqladmin ping`）；**`APP_ENV` 固定 `production`**
+  （杜绝部署环境误用本地替身）；db 端口仅绑定 `127.0.0.1`；限流阈值可经环境变量调整。
+- 新增 `backend/docs/deploy.md`：部署运行手册（环境变量必填项、一键启动、**首次部署知识库导入顺序**、
+  验收自测命令、运维要点、常见问题排查表）。
+- 导入脚本的路径引导改为同时兼容宿主机与容器工作目录。
+- **验证边界**：`docker compose config` 通过（语法与变量插值正确）；**镜像构建与容器运行未验证**——
+  本会话 Docker 守护进程未启动（需手动启动 Docker Desktop 后再执行 `docker compose up -d --build`）。
+
+**验证结果**：后端 `pytest -q` → **225 passed**（本次新增 30 例：限流 9 / 清洗 13 / 知识来源 8）；
+导入脚本在「仓库根为 cwd」与「绝对路径调用」两种方式下均正常（幂等：首次新增 8 并清理 8 条演示来源，
+复跑更新 8 条）。
+
+---
+
 ## 📚 成员产出索引
 
 - **产品官（gstack-product-reviewer）**：完整代码审查报告——7 个判断点逐条结论、按严重度排序的 2 🔴 / 4 🟠 / 8 🟡 发现、Go/No-Go 前置条件 5 条；明确裁定「过期/草稿拒答」比原计划更正确、`content` 列为必要支撑改动。

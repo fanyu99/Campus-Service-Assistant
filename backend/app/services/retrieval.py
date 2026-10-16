@@ -12,6 +12,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.sanitize import is_safe_source_url
 from app.models import AnswerStatus, KnowledgeStatus, ServiceItem, SourceDocument
 from app.schemas.chat import ChatContext, ChatSource
 
@@ -58,6 +59,11 @@ def _in_effect(document: SourceDocument, today: date) -> bool:
     return document.effective_from <= today <= document.effective_to
 
 
+def _is_citable(document: SourceDocument) -> bool:
+    """来源链接必须是 http/https 绝对地址，否则无法对外引用（契约 §3.2、OWASP A08）。"""
+    return is_safe_source_url(document.official_url)
+
+
 def _apply_context(
     documents: list[SourceDocument], context: ChatContext | None
 ) -> list[SourceDocument]:
@@ -95,6 +101,8 @@ def retrieve_documents(
         ).all()
     )
     documents = _apply_context(documents, context)
+    # 链接不可引用的来源一律剔除：既不能作为生成依据，也不能出现在 sources 里
+    documents = [doc for doc in documents if _is_citable(doc)]
 
     conflicts = [doc for doc in documents if doc.status is KnowledgeStatus.CONFLICT]
     if conflicts:

@@ -18,8 +18,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BACKEND_DIR = REPO_ROOT / "backend"
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
+# 兼容两种运行环境：宿主机（app 在 backend/ 下）与容器（WORKDIR 即仓库根）
+for _path in (str(REPO_ROOT), str(BACKEND_DIR)):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from sqlalchemy import select  # noqa: E402
 
