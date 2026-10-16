@@ -186,10 +186,13 @@ try {
             <div class="character-bubble" role="status" aria-live="polite">{{ characterMessage }}</div>
             <div ref="character" class="character">
               <!-- fetchpriority=high：角色底图是首页的 LCP 元素，让它插队到 JS 之后第一梯队。
-                   iris / lash 是叠加图层，尺寸与底图一致，跟着一起下完即可。 -->
-              <img class="ch-base" src="/assets/character.webp" alt="" width="1024" height="954" fetchpriority="high" decoding="async">
+                   眼睛、爱心和呆毛是独立图层，分别负责眼动与轻量装饰动画。 -->
+              <img class="ch-base" src="/assets/character-base-motion.png" alt="" width="1024" height="954" fetchpriority="high" decoding="async">
               <div class="ch-iris-mask"><div class="ch-iris"><img src="/assets/character-iris.webp" alt="" width="388" height="236" decoding="async"></div></div>
               <img class="ch-lash" src="/assets/character-lash.webp" alt="" width="388" height="236" decoding="async">
+              <img class="ch-heart ch-heart-left" src="/assets/character-heart-left.png" alt="" aria-hidden="true" width="502" height="804" decoding="async">
+              <img class="ch-heart ch-heart-right" src="/assets/character-heart-right.png" alt="" aria-hidden="true" width="457" height="744" decoding="async">
+              <img class="ch-ahoge" src="/assets/character-ahoge.png" alt="" aria-hidden="true" width="645" height="893" decoding="async">
             </div>
           </div>
         </div>
@@ -302,11 +305,27 @@ try {
     radial-gradient(ellipse 6.836% 7.023% at 38.574% 62.788%, #000 88%, transparent 100%),
     radial-gradient(ellipse 7.031% 7.442% at 59.863% 55.765%, #000 88%, transparent 100%)}
 .character img{position:absolute;display:block}
-.ch-base{inset:0;width:100%;height:100%}
-.ch-iris-mask{position:absolute;inset:0;pointer-events:none;-webkit-mask-image:var(--eye-mask);mask-image:var(--eye-mask)}
+.ch-base{inset:0;z-index:0;width:100%;height:100%}
+.ch-iris-mask{position:absolute;z-index:1;inset:0;pointer-events:none;-webkit-mask-image:var(--eye-mask);mask-image:var(--eye-mask)}
 .ch-iris{position:absolute;inset:0;transform:translate(var(--gx,0%),var(--gy,0%))}
 .ch-iris img,.ch-lash{left:30.8594%;top:46.1216%;width:37.8906%;height:24.7379%}
-@media (prefers-reduced-motion:reduce){.ch-iris{transform:none}}
+.ch-lash{z-index:2}
+.ch-heart,.ch-ahoge{z-index:3;pointer-events:none;will-change:transform}
+.ch-heart{animation:character-heart-float 3.9s ease-in-out infinite}
+.ch-heart-left{left:-1%;top:39%;width:10%;height:auto;animation-delay:-1.2s}
+.ch-heart-right{right:-1%;top:19%;width:11%;height:auto;animation-delay:-2.5s;animation-duration:4.6s}
+.ch-ahoge{left:34.25%;top:-1.3%;width:12.5%;height:auto;transform-origin:50% 97%;animation:character-ahoge-sway 3.2s ease-in-out infinite}
+@keyframes character-heart-float{
+  0%,100%{transform:translate3d(0,0,0) rotate(-3deg) scale(1)}
+  50%{transform:translate3d(0,-7px,0) rotate(3deg) scale(1.035)}
+}
+@keyframes character-ahoge-sway{
+  0%,100%{transform:rotate(-4deg) translate3d(0,0,0)}
+  50%{transform:rotate(5deg) translate3d(0,-2px,0)}
+}
+@media (prefers-reduced-motion:reduce){
+  .ch-iris,.ch-heart,.ch-ahoge{animation:none;transform:none}
+}
 
 /* ── 聊天输入框（角色正好趴在其上沿）─────────────────────────────────── */
 .composer-wrap{position:relative;z-index:2;width:min(660px,100%);margin:0 auto;display:flex;flex-direction:column;gap:10px}
