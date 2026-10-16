@@ -50,7 +50,7 @@ def test_migration_version_after_upgrade(alembic_cfg):
         version = connection.exec_driver_sql(
             "SELECT version_num FROM alembic_version"
         ).scalar()
-        assert version == "0002"
+        assert version == "0004"
     finally:
         connection.close()
         engine.dispose()

@@ -40,7 +40,15 @@
 ```text
 Content-Type: application/json   # 仅带 body 的请求需要
 Accept: application/json
+X-Session-Token: <匿名会话标识>   # 问答与历史记录接口使用，见下方说明
 ```
+
+> **`X-Session-Token`（匿名会话标识，v1.1 补录）：** 由前端首次访问时生成
+> （`crypto.randomUUID()`）并持久化到本机，随 `POST /api/chat/messages` 与
+> `GET /api/conversations` 一起发送。后端据此隔离会话，**禁止跨标识读取**；
+> 缺失或空白时 `GET /api/conversations` 直接返回空列表而不做全量查询（OWASP A01）。
+> 它不是登录态，不承载任何身份信息，也不得用于识别自然人。写入与读取使用同一套
+> 规范化规则（去空白 + 截断到 64 字符）。
 
 ### 1.3 CORS
 
@@ -175,6 +183,14 @@ Accept: application/json
 | `service_error` | 云服务异常 | `null` | 展示重试提示 |
 
 > **定稿约定：** 非 `answered` 状态下 `answer` 一律为 `null`（显式返回，不省略字段）；`sources` 一律为数组（可为空数组）。
+
+> **实现说明（v1.1 补录）：**
+> 1. **`intent` 在非 `answered` 状态下不保证为 `null`**：已识别到事项时会回传事项编码
+>    （如 `need_clarification` 回传 `S04`、`insufficient_evidence` 回传 `S01`），便于前端展示与埋点。
+>    前端请按 `status` 分支渲染，不要依赖 `intent` 判空。
+> 2. **拒答时可能回带来源**：若事项只有过期/草稿来源，状态为 `insufficient_evidence`、`answer` 为 `null`，
+>    但 `sources` 会回带这些来源（`status` 为 `expired` / `draft`），供前端提示「资料可能已失效」；
+>    完全无来源时 `sources` 为 `[]`。
 
 ### 3.4 ConversationSummary（会话摘要）
 
@@ -363,6 +379,11 @@ Content-Type: application/json
 
 **前端：** `sendChatMessage()`。**每轮必须携带上一轮返回的 `conversation_id`**；刷新页面视为新会话。
 
+> **会话归属校验（v1.1）：** 续写已存在的 `conversation_id` 时，后端校验该会话的
+> `session_token` 与请求头 `X-Session-Token` 是否一致；不一致一律按 404
+> `CONVERSATION_NOT_FOUND` 处理（含请求未带标识的情况），避免跨标识续写（§4.4）。
+> 会话创建时未带标识的，首次带标识访问即完成「认领」，之后按标识隔离。
+
 ---
 
 ### 4.4 查询最近会话
@@ -528,3 +549,4 @@ GET /api/knowledge/sources
 |---|---|---|---|
 | 2026-09-27 | v0.1 | 初稿（联调草案） | 由前端编制，含 6 项「待确认」 |
 | 2026-10-07 | v1.0 | 定稿并修正 | ① `answer` 由 string 改为结构化对象（对齐实施方案 8.1）② 补齐 `intent` / `need_clarification` 字段 ③ 统一错误结构与业务错误码（原「待确认」Q1）④ 定稿 `reason_code` 枚举（Q5）⑤ 定稿 `answer` 空值语义（Q3）⑥ 定稿「待继续/已完成」推导规则（Q4）⑦ 定稿 CORS 策略（Q6）⑧ 新增 §3.5 标识符规范与 §0 落地状态 ⑨ 明确 §4.4 匿名隔离与 §6.6 提示词注入要求 |
+| 2026-10-16 | v1.1 | 补录与落地说明 | ① §1.2 补录 `X-Session-Token` 请求头（后端 `GET /api/conversations` 已按其隔离，前端此前未发送，本次对齐）② §3.1 的 `icon` / `tone` / `prompt` 由「选返」转为**实际返回**（`service_items` 新增同名列，为空时回退后端缺省表）③ 明确 `POST /api/chat/messages` 的错误映射：传输层失败 503 `UPSTREAM_TIMEOUT` / `UPSTREAM_ERROR`、上游限流 429 `RATE_LIMITED`、模型输出不可用 200 `status=service_error` ④ 明确生成依据口径：仅「已核验 + 有效期内 + 有正文」的来源可产出 `answered`；过期/草稿一律拒答（`insufficient_evidence`，并在 `sources` 中回带这些来源供前端提示「资料可能已失效」）；存在冲突来源时返回 `conflict` |

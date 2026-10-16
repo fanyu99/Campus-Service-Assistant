@@ -3,13 +3,14 @@ from sqlalchemy.orm import Session
 
 from app.models import Conversation
 from app.schemas.conversation import ConversationListResponse, ConversationSummaryResponse
+from app.services.session_token import normalize_session_token
 
 
 def list_conversations(
     session: Session, session_token: str | None, limit: int
 ) -> ConversationListResponse:
-    token = session_token.strip() if session_token else ""
-    if not token:
+    token = normalize_session_token(session_token)
+    if token is None:
         return ConversationListResponse(conversations=[], total=0)
     condition = Conversation.session_token == token
     total = session.scalar(select(func.count()).select_from(Conversation).where(condition))

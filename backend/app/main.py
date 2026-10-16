@@ -2,6 +2,7 @@ import uvicorn
 from fastapi import FastAPI
 from pydantic import ValidationError
 
+from app.api.chat import router as chat_router
 from app.api.conversations import router as conversations_router
 from app.api.feedback import router as feedback_router
 from app.api.health import router as health_router
@@ -19,6 +20,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.settings = settings or get_settings()
     application.include_router(health_router)
     application.include_router(service_items_router)
+    application.include_router(chat_router)
     application.include_router(conversations_router)
     application.include_router(feedback_router)
     register_error_handlers(application)

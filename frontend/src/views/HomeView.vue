@@ -202,7 +202,7 @@ try {
           <div class="panel-head"><h2>常用事项</h2><button type="button" class="link-btn" data-od-id="view-all-services" @click="router.push({ name: 'services' })">全部事项</button></div>
           <ul class="list">
             <li v-for="item in serviceItems" :key="item.id">
-              <button type="button" class="row" :data-od-id="`service-card-${item.id}`" @mouseenter="setHover(hoverMessages.services)" @mouseleave="clearHover" @focus="setHover(hoverMessages.services)" @blur="clearHover" @click="goChat(item.prompt)">
+              <button type="button" class="row" :data-od-id="`service-card-${item.id}`" @mouseenter="setHover(hoverMessages.services)" @mouseleave="clearHover" @focus="setHover(hoverMessages.services)" @blur="clearHover" @click="goChat(item.prompt ?? undefined)">
                 <span class="row-icon" aria-hidden="true"><svg class="i"><use :href="'#' + (SERVICE_ICON[item.id] ?? FALLBACK_SERVICE_ICON)"/></svg></span>
                 <span class="row-title">{{ item.title }}</span>
                 <span class="row-cat">{{ item.category }}</span>
