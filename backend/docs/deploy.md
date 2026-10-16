@@ -98,6 +98,8 @@ curl http://localhost/api/knowledge/sources?status=verified
 |---|---|---|
 | 页面能开，`/api/*` 返回 502 | backend 未启动或未通过健康检查 | `docker compose ps` / `docker compose logs backend` |
 | 问答返回 503 `UPSTREAM_ERROR` | 未配置模型凭证，或 Key 未生效（新 Key 需 3–5 分钟） | 检查 `.env` 与容器环境变量；`docker compose exec backend env \| findstr AGENTARTS` |
+| 问答返回 503，日志出现 `403 ModelArts.81006 The resource is frozen` | **模型服务被冻结**：欠费 / 免费额度用尽 / 需续费 | 到华为云 MaaS 控制台确认计费与额度并续费；恢复后无需改代码 |
+| 问答返回 503，日志出现 `400` 或 `model not found` | `MAAS_MODEL` 与控制台开通的模型不一致 | 按控制台「调用说明」改 `MAAS_MODEL`（预置服务区域为西南-贵阳一） |
 | 报 `model not found` | `MAAS_MODEL` 与控制台开通的模型不一致 | 按控制台「调用说明」改 `MAAS_MODEL`（预置服务区域为西南-贵阳一） |
 | 返回 429 `RATE_LIMITED` | 触发限流 | 等待窗口滑过，或调整 `CHAT_RATE_LIMIT_REQUESTS` |
 | `/api/service-items` 返回 `[]` | 未执行 `seed_demo_data.py` | 执行第 4 节导入流程 |

@@ -33,8 +33,15 @@ class Settings(BaseSettings):
     maas_base_url: str = "https://api.modelarts-maas.com/v2"
     maas_model: str = "DeepSeek-V3"
     maas_connect_timeout: float = 2.0
-    maas_read_timeout: float = 6.0
+    # 读超时留 7.5 秒：契约规定前端 8 秒超时（对应验收「典型回答 8 秒以内」），
+    # 关闭思考链 + 简洁提示词后实测 p95 约 4 秒，7.5 秒可在前端预算内尽量容忍慢响应。
+    maas_read_timeout: float = 7.5
     maas_max_tokens: int = 1024
+    # 关闭模型思考链：推理模型（如 deepseek-v4.1-flash）会先输出 reasoning_content，
+    # 思考 token 既挤占 max_tokens 又显著拉长耗时（实测同一问题 12.8~65.5 秒），
+    # 而契约要求典型回答 8 秒以内，故默认关闭。
+    # 关闭写法以模型服务为准：当前模型支持 {"thinking": {"type": "disabled"}}。
+    maas_disable_thinking: bool = True
     # 问答限流（契约 §6.7、OWASP A04）：单标识在窗口内的最大请求数
     chat_rate_limit_requests: int = 10
     chat_rate_limit_window_seconds: float = 60.0

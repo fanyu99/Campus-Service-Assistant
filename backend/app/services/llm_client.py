@@ -66,6 +66,7 @@ class MaaSClient:
         connect_timeout: float = 2.0,
         read_timeout: float = 6.0,
         max_tokens: int = 1024,
+        disable_thinking: bool = True,
     ) -> None:
         self._api_key = api_key.strip()
         self._base_url = base_url.rstrip("/")
@@ -73,6 +74,19 @@ class MaaSClient:
         self._connect_timeout = connect_timeout
         self._read_timeout = read_timeout
         self._max_tokens = max_tokens
+        self._disable_thinking = disable_thinking
+
+    def _endpoint(self) -> str:
+        """拼接 chat/completions 地址。
+
+        控制台「调用说明」给出的地址有的只到 `/v2`，有的直接是完整端点
+        `/v2/chat/completions`；两种写法都必须能用，否则会拼成
+        `.../chat/completions/chat/completions` 导致 404。
+        """
+        base = self._base_url.rstrip("/")
+        if base.endswith("/chat/completions"):
+            return base
+        return f"{base}/chat/completions"
 
     def complete(self, system: str, user: str) -> str:
         if not self._api_key:
@@ -87,11 +101,15 @@ class MaaSClient:
             "temperature": 0.2,
             "stream": False,
         }
+        if self._disable_thinking:
+            # 推理模型默认会先产出思考链：既占 max_tokens 又使耗时不可控
+            # （实测同一问题 12.8~65.5 秒），关闭后约 1~3 秒。
+            payload["thinking"] = {"type": "disabled"}
         timeout = httpx.Timeout(self._read_timeout, connect=self._connect_timeout)
         try:
             with httpx.Client(timeout=timeout) as client:
                 response = client.post(
-                    f"{self._base_url}/chat/completions",
+                    self._endpoint(),
                     json=payload,
                     headers={
                         "Authorization": f"Bearer {self._api_key}",
@@ -101,9 +119,16 @@ class MaaSClient:
         except httpx.TimeoutException as exc:
             raise LLMTimeoutError("模型服务响应超时") from exc
         except httpx.HTTPError as exc:
+            logger.warning("MaaS 连接失败：%s", exc.__class__.__name__)
             raise LLMUpstreamError("模型服务不可达") from exc
 
         if response.status_code >= 400:
+            # 记录上游状态码与简短原因，便于区分限流 / 鉴权 / 服务端故障（不回传用户）
+            logger.warning(
+                "MaaS 返回 %s：%s",
+                response.status_code,
+                response.text[:200].replace("\n", " "),
+            )
             raise LLMUpstreamError(
                 f"模型服务返回 {response.status_code}", status_code=response.status_code
             )
@@ -213,6 +238,7 @@ def get_llm_client() -> LLMClient:
             connect_timeout=settings.maas_connect_timeout,
             read_timeout=settings.maas_read_timeout,
             max_tokens=settings.maas_max_tokens,
+            disable_thinking=settings.maas_disable_thinking,
         )
     if settings.app_env == "local":
         logger.warning(

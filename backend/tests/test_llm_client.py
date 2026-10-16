@@ -17,9 +17,10 @@ from app.services.llm_client import (
 
 
 class _FakeResponse:
-    def __init__(self, status_code: int = 200, payload=None) -> None:
+    def __init__(self, status_code: int = 200, payload=None, text: str = "") -> None:
         self.status_code = status_code
         self._payload = payload
+        self.text = text
 
     def json(self):
         if self._payload is None:
@@ -90,6 +91,23 @@ def test_maas_client_strips_trailing_slash_in_base_url(fake_http):
     assert fake_http.last_request["url"].endswith("/v2/chat/completions")
 
 
+def test_maas_client_accepts_full_endpoint_in_base_url(fake_http):
+    """控制台给出的地址可能已含 /chat/completions，不能重复拼接（否则 404）。"""
+    _client(base_url="https://api.modelarts-maas.com/v2/chat/completions").complete("s", "u")
+    assert fake_http.last_request["url"] == "https://api.modelarts-maas.com/v2/chat/completions"
+
+
+def test_maas_client_disables_thinking_by_default(fake_http):
+    """推理模型默认产出思考链，会挤占 max_tokens 并显著拉长耗时，因此默认关闭。"""
+    _client().complete("s", "u")
+    assert fake_http.last_request["json"]["thinking"] == {"type": "disabled"}
+
+
+def test_maas_client_can_keep_thinking_enabled(fake_http):
+    _client(disable_thinking=False).complete("s", "u")
+    assert "thinking" not in fake_http.last_request["json"]
+
+
 def test_maas_client_timeout_maps_to_timeout_error(fake_http):
     fake_http.error = httpx.ReadTimeout("slow")
     with pytest.raises(LLMTimeoutError):
@@ -103,7 +121,9 @@ def test_maas_client_connect_error_maps_to_upstream_error(fake_http):
 
 
 def test_maas_client_http_error_keeps_status_code(fake_http):
-    fake_http.response = _FakeResponse(401, {"error": "unauthorized"})
+    fake_http.response = _FakeResponse(
+        401, {"error": "unauthorized"}, text='{"error":{"code":"ModelArts.81001"}}'
+    )
     with pytest.raises(LLMUpstreamError) as excinfo:
         _client().complete("s", "u")
     assert excinfo.value.status_code == 401
