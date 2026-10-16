@@ -501,6 +501,54 @@ GET /api/knowledge/sources
 
 ---
 
+### 4.7 规划中的变更（v1.3）——🚧 尚未实现，禁止作为联调依据
+
+> 三项来源：2026-10-16 实测反馈（查看历史即重问、继续聊天开新会话、非事项问题机械拒绝）。
+> 完整根因、任务分解与验收标准见 **`docs/问题修复方案-对话体验三项-2026-10-16.md`**。
+> **实现完成后，请把本节内容移入正式章节并同步更新 §0 落地状态**，避免前后端按「未实现的契约」开发。
+
+**① 新增 `GET /api/conversations/{conversation_id}/messages`**
+
+- 按会话读取消息明细（一问一答成对返回），用于「最近记录 → 查看/续接」；
+- 沿用 `X-Session-Token` 归属校验：会话不属于该标识时返回 404 `CONVERSATION_NOT_FOUND`（契约 §4.4）；
+- 响应建议：`{"messages": [{"role": "question"|"assistant", "content": "...", "status": "answered",
+  "answer": {…}|null, "sources": […], "created_at": "ISO8601"}], "total": N}`。
+
+**② 新增数据表 `conversation_messages`（迁移 `0005`）**
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | String(36) | 主键，uuid4 |
+| `conversation_id` | String(36) FK | 关联 `conversations.id`，级联删除 |
+| `role` | String(16) | `question` / `assistant` |
+| `content` | Text | 用户原文（question 轮）/ 回复文本（assistant 轮） |
+| `status` | String(24) | 该轮 `AnswerStatus` |
+| `answer_json` | Text / JSON | assistant 轮的结构化卡片；`null` 表示非 answered |
+| `sources_json` | Text / JSON | assistant 轮的来源快照（不采信模型输出，仍由 DB 映射） |
+| `created_at` | DateTime(tz) | 入库时间 |
+
+> 动机：当前 `conversations` 是「一行 = 一个问题」的单轮建模（`question` 单数字段、无消息明细），
+> **AI 回答内容从未落库**，因此既无法展示历史对话，也无法为后续轮次提供上下文。
+
+**③ 新增状态 `smalltalk` 与响应字段 `text`**
+
+- 触发范围：问候 / 闲聊 / 与校园事务无关的日常对话，以及**与支持事项相关但表述不清**时的引导对话；
+- 响应语义：`status="smalltalk"`、`answer=null`、`sources=[]`、`need_clarification=false`，
+  新增可选字段 **`text`**（string，纯文本，前端渲染为普通聊天气泡而非卡片或错误提示）；
+- 引导示例：`text` = 「你是在问学生证补办吗？我可以帮你查办理流程。」；
+- 分类规则：命中事项 → 走现有六态；未命中且属问候/闲聊 → `smalltalk`（模型自然回复，**不涉及政策、不给流程**）；
+  未命中但听起来像校园事务 → `smalltalk` + 引导语；明确库外（如「食堂几点开门」）→ 仍 `unsupported`；
+- `conversations.result_status` 的 CheckConstraint 需同步加入该取值。
+
+**④ 前端入口语义（与 §5 同步）**
+
+| 入口 | 语义 |
+|---|---|
+| `/chat?q=<问题>` | **提问**：进入后自动发送 |
+| `/chat?id=<会话id>` | **查看 / 续接**：加载该会话消息历史，**不自动重发**；「继续咨询」据此续接同一会话 |
+| 记录页主点击 | 查看（`?id=`） |
+| 记录页「重新提问」 | 仍走 `?q=`（原「继续咨询」按钮，改名以明确会再次生成回答） |
+
 ## 5. 页面与接口映射
 
 | 页面 | 前端文件 | 当前数据来源 | 目标接口 | 前端函数 |
@@ -551,3 +599,4 @@ GET /api/knowledge/sources
 | 2026-10-07 | v1.0 | 定稿并修正 | ① `answer` 由 string 改为结构化对象（对齐实施方案 8.1）② 补齐 `intent` / `need_clarification` 字段 ③ 统一错误结构与业务错误码（原「待确认」Q1）④ 定稿 `reason_code` 枚举（Q5）⑤ 定稿 `answer` 空值语义（Q3）⑥ 定稿「待继续/已完成」推导规则（Q4）⑦ 定稿 CORS 策略（Q6）⑧ 新增 §3.5 标识符规范与 §0 落地状态 ⑨ 明确 §4.4 匿名隔离与 §6.6 提示词注入要求 |
 | 2026-10-16 | v1.1 | 补录与落地说明 | ① §1.2 补录 `X-Session-Token` 请求头（后端 `GET /api/conversations` 已按其隔离，前端此前未发送，本次对齐）② §3.1 的 `icon` / `tone` / `prompt` 由「选返」转为**实际返回**（`service_items` 新增同名列，为空时回退后端缺省表）③ 明确 `POST /api/chat/messages` 的错误映射：传输层失败 503 `UPSTREAM_TIMEOUT` / `UPSTREAM_ERROR`、上游限流 429 `RATE_LIMITED`、模型输出不可用 200 `status=service_error` ④ 明确生成依据口径：仅「已核验 + 有效期内 + 有正文」的来源可产出 `answered`；过期/草稿一律拒答（`insufficient_evidence`，并在 `sources` 中回带这些来源供前端提示「资料可能已失效」）；存在冲突来源时返回 `conflict` |
 | 2026-10-16 | v1.2 | 六页接线与范围收敛 | ① §0 落地状态更新为「后端已实现 + 页面已接线」② §5 六个页面的数据来源改为真实接口（`home.mock.ts` 已移除）③ §3.5 前端演示项 `network`（校园网与账号）**移出支持事项列表**（不在 S01–S08 范围内）④ 补充实现约定：记录页「待继续/已完成」由 `result_status` 推导（§3.4），事项编码→UI key 映射见 §3.5，前端 `src/data/service-codes.ts` 与本表保持一致 |
+| 2026-10-16 | v1.3（🚧 规划中，未实现） | 对话体验三项修复 | ① 规划 `GET /api/conversations/{conversation_id}/messages` 与新增表 `conversation_messages`（AI 回答与来源快照落库，历史可查看、可续接）② 规划新状态 `smalltalk` 与 `ChatResponse.text`（问候/闲聊/引导对话不再机械拒绝）③ 明确前端入口语义：`/chat?q=` 提问、`/chat?id=` 查看/续接。详见 `docs/问题修复方案-对话体验三项-2026-10-16.md` |
