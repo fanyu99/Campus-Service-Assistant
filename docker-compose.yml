@@ -44,8 +44,9 @@ services:
       # 问答限流（契约 §6.7）：多副本部署时实际阈值为「本值 × 副本数」
       CHAT_RATE_LIMIT_REQUESTS: ${CHAT_RATE_LIMIT_REQUESTS:-10}
       CHAT_RATE_LIMIT_WINDOW_SECONDS: ${CHAT_RATE_LIMIT_WINDOW_SECONDS:-60}
-    expose:
-      - "8000"
+    ports:
+      # 暴露到宿主机，便于直接访问 http://localhost:8000/docs 调试后端接口
+      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
